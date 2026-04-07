@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../../../shared/models/player_enums.dart';
 import 'models/player_profile.dart';
 import 'models/player_stats.dart';
@@ -13,8 +15,8 @@ abstract class ProfileRepository {
 
   /// Actualiza el perfil del jugador autenticado.
   ///
-  /// Solo los campos no-null se actualizan. Para limpiar un campo opcional
-  /// (ej. borrar la bio) se puede pasar `bio: ''`.
+  /// Solo los campos no-null se actualizan. Para limpiar la bio
+  /// se puede pasar `bio: ''`.
   Future<void> updateProfile({
     required String userId,
     String? fullName,
@@ -23,4 +25,14 @@ abstract class ProfileRepository {
     DominantFoot? dominantFoot,
     ExperienceLevel? experienceLevel,
   });
+
+  /// Sube [bytes] JPEG al bucket `avatars` de Supabase Storage y actualiza
+  /// `avatar_url` en `public.users`. Retorna la URL pública del avatar.
+  ///
+  /// El bucket `avatars` debe existir en Supabase Storage con acceso público.
+  /// Crea el bucket en: Storage → New bucket → nombre: `avatars` → Public.
+  Future<String> uploadAvatar(String userId, Uint8List bytes);
+
+  /// Elimina el avatar del bucket y borra `avatar_url` en `public.users`.
+  Future<void> removeAvatar(String userId);
 }

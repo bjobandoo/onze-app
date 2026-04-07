@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -16,6 +18,7 @@ void main() {
     registerFallbackValue(PlayerPosition.mediocampista);
     registerFallbackValue(DominantFoot.derecho);
     registerFallbackValue(ExperienceLevel.intermedio);
+    registerFallbackValue(Uint8List(0));
   });
 
   setUp(() => repo = MockProfileRepository());
@@ -172,6 +175,82 @@ void main() {
       await expectLater(
         () => repo.updateProfile(userId: userId),
         throwsA(isA<NetworkException>()),
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // uploadAvatar
+  // ---------------------------------------------------------------------------
+
+  group('ProfileRepository.uploadAvatar', () {
+    const userId = 'user-abc';
+    final fakeBytes = Uint8List.fromList([0xFF, 0xD8, 0xFF]); // header JPEG
+
+    test('retorna la URL pública tras subir el avatar', () async {
+      const expectedUrl = 'https://supabase.co/storage/avatars/user-abc.jpg';
+      when(() => repo.uploadAvatar(any(), any()))
+          .thenAnswer((_) async => expectedUrl);
+
+      final url = await repo.uploadAvatar(userId, fakeBytes);
+
+      expect(url, expectedUrl);
+      verify(() => repo.uploadAvatar(userId, fakeBytes)).called(1);
+    });
+
+    test('lanza DatabaseException ante error de Storage', () async {
+      when(() => repo.uploadAvatar(any(), any())).thenThrow(
+        const DatabaseException('No se pudo subir la foto.'),
+      );
+
+      await expectLater(
+        () => repo.uploadAvatar(userId, fakeBytes),
+        throwsA(isA<DatabaseException>()),
+      );
+    });
+
+    test('lanza NetworkException ante error de conexión', () async {
+      when(() => repo.uploadAvatar(any(), any())).thenThrow(
+        const NetworkException('Error de conexión. Intenta nuevamente.'),
+      );
+
+      await expectLater(
+        () => repo.uploadAvatar(userId, fakeBytes),
+        throwsA(isA<NetworkException>()),
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // removeAvatar
+  // ---------------------------------------------------------------------------
+
+  group('ProfileRepository.removeAvatar', () {
+    const userId = 'user-abc';
+
+    test('completa sin error cuando el avatar existe', () async {
+      when(() => repo.removeAvatar(any())).thenAnswer((_) async {});
+
+      await expectLater(repo.removeAvatar(userId), completes);
+      verify(() => repo.removeAvatar(userId)).called(1);
+    });
+
+    test('completa sin error aunque el archivo no exista en Storage (404)',
+        () async {
+      // El impl maneja 404 limpiando igual la BD; el contrato es que no lanza.
+      when(() => repo.removeAvatar(any())).thenAnswer((_) async {});
+
+      await expectLater(repo.removeAvatar(userId), completes);
+    });
+
+    test('lanza DatabaseException ante error inesperado de Storage', () async {
+      when(() => repo.removeAvatar(any())).thenThrow(
+        const DatabaseException('No se pudo eliminar la foto.'),
+      );
+
+      await expectLater(
+        () => repo.removeAvatar(userId),
+        throwsA(isA<DatabaseException>()),
       );
     });
   });

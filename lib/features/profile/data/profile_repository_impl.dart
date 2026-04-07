@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
 import '../../../core/errors/onze_exception.dart';
@@ -10,6 +12,8 @@ import '../domain/profile_repository.dart';
 
 /// Implementación de [ProfileRepository] usando Supabase.
 class ProfileRepositoryImpl implements ProfileRepository {
+  static const _avatarBucket = 'avatars';
+
   @override
   Future<PlayerProfile?> getPlayerProfile(String userId) async {
     try {
@@ -23,10 +27,7 @@ class ProfileRepositoryImpl implements ProfileRepository {
       return PlayerProfile.fromMap(data);
     } on sb.PostgrestException catch (e) {
       log.e('Error al obtener perfil del jugador', error: e);
-      throw DatabaseException(
-        'No se pudo cargar el perfil.',
-        code: e.code,
-      );
+      throw DatabaseException('No se pudo cargar el perfil.', code: e.code);
     }
   }
 
@@ -43,7 +44,6 @@ class ProfileRepositoryImpl implements ProfileRepository {
       return PlayerStats.fromMap(data);
     } on sb.PostgrestException catch (e) {
       log.e('Error al obtener estadísticas', error: e);
-      // Las estadísticas no son críticas; retornar vacías antes de fallar.
       return const PlayerStats();
     }
   }
@@ -58,7 +58,6 @@ class ProfileRepositoryImpl implements ProfileRepository {
     ExperienceLevel? experienceLevel,
   }) async {
     try {
-      // 1. Actualizar public.users si cambió el nombre
       if (fullName != null) {
         await supabase
             .from('users')
@@ -66,10 +65,7 @@ class ProfileRepositoryImpl implements ProfileRepository {
             .eq('id', userId);
       }
 
-      // 2. Construir el mapa de campos a actualizar en player_profiles
-      final profileUpdates = <String, dynamic>{
-        'user_id': userId,
-      };
+      final profileUpdates = <String, dynamic>{'user_id': userId};
       if (bio != null) profileUpdates['bio'] = bio.trim();
       if (position != null) profileUpdates['position'] = position.dbValue;
       if (dominantFoot != null) {
@@ -93,6 +89,92 @@ class ProfileRepositoryImpl implements ProfileRepository {
     } catch (e, st) {
       log.e('Error inesperado al actualizar perfil', error: e, stackTrace: st);
       throw const NetworkException('Error de conexión. Intenta nuevamente.');
+    }
+  }
+
+  @override
+  Future<String> uploadAvatar(String userId, Uint8List bytes) async {
+    // Siempre se guarda como JPEG. image_picker con imageQuality < 100
+    // devuelve bytes JPEG en Android e iOS.
+    final filePath = '$userId.jpg';
+
+    try {
+      log.d('Subiendo avatar para userId: $userId (${bytes.lengthInBytes} bytes)');
+
+      await supabase.storage.from(_avatarBucket).uploadBinary(
+            filePath,
+            bytes,
+            fileOptions: const sb.FileOptions(
+              upsert: true,
+              contentType: 'image/jpeg',
+            ),
+          );
+
+      final publicUrl =
+          supabase.storage.from(_avatarBucket).getPublicUrl(filePath);
+
+      // Agregar cache-buster para que la imagen recargue en el cliente
+      final urlWithBust =
+          '$publicUrl?t=${DateTime.now().millisecondsSinceEpoch}';
+
+      await supabase
+          .from('users')
+          .update({'avatar_url': urlWithBust})
+          .eq('id', userId);
+
+      log.i('Avatar subido correctamente: $publicUrl');
+      return urlWithBust;
+    } on sb.StorageException catch (e) {
+      log.e('Error al subir avatar', error: e);
+      throw DatabaseException(
+        'No se pudo subir la foto. Intenta nuevamente.',
+        code: e.statusCode,
+      );
+    } on sb.PostgrestException catch (e) {
+      log.e('Error al actualizar avatar_url', error: e);
+      throw DatabaseException(
+        'Foto subida pero no se pudo guardar. Intenta nuevamente.',
+        code: e.code,
+      );
+    } catch (e, st) {
+      log.e('Error inesperado al subir avatar', error: e, stackTrace: st);
+      throw const NetworkException('Error de conexión. Intenta nuevamente.');
+    }
+  }
+
+  @override
+  Future<void> removeAvatar(String userId) async {
+    final filePath = '$userId.jpg';
+
+    try {
+      log.d('Eliminando avatar para userId: $userId');
+
+      await supabase.storage.from(_avatarBucket).remove([filePath]);
+      await supabase
+          .from('users')
+          .update({'avatar_url': null})
+          .eq('id', userId);
+
+      log.i('Avatar eliminado para $userId');
+    } on sb.StorageException catch (e) {
+      log.e('Error al eliminar avatar del storage', error: e);
+      // Si el archivo no existe en Storage, igual limpiamos la BD
+      if (e.statusCode != '404') {
+        throw DatabaseException(
+          'No se pudo eliminar la foto. Intenta nuevamente.',
+          code: e.statusCode,
+        );
+      }
+      await supabase
+          .from('users')
+          .update({'avatar_url': null})
+          .eq('id', userId);
+    } on sb.PostgrestException catch (e) {
+      log.e('Error al limpiar avatar_url', error: e);
+      throw DatabaseException(
+        'No se pudo completar la operación. Intenta nuevamente.',
+        code: e.code,
+      );
     }
   }
 }

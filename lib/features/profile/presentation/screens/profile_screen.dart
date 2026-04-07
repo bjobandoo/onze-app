@@ -6,11 +6,11 @@ import '../../../../core/routing/app_router.dart';
 import '../../../../core/theme/onze_colors.dart';
 import '../../../../features/auth/presentation/providers/auth_providers.dart';
 import '../../../../shared/models/app_user.dart';
-import '../../../../shared/widgets/onze_avatar.dart';
 import '../../../../shared/widgets/onze_button.dart';
 import '../../../../shared/widgets/onze_card.dart';
 import '../../domain/models/player_profile.dart';
 import '../providers/profile_providers.dart';
+import '../widgets/profile_avatar_picker.dart';
 import '../widgets/profile_stats_row.dart';
 import 'edit_profile_screen.dart';
 
@@ -88,7 +88,7 @@ class _ProfileContent extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 32),
-          _buildAvatarSection(context, user),
+          _buildAvatarSection(context, user, ref),
           const SizedBox(height: 32),
           _buildStatsSection(context),
           const SizedBox(height: 32),
@@ -103,14 +103,16 @@ class _ProfileContent extends ConsumerWidget {
     );
   }
 
-  Widget _buildAvatarSection(BuildContext context, AppUser user) {
+  Widget _buildAvatarSection(BuildContext context, AppUser user, WidgetRef ref) {
     return Center(
       child: Column(
         children: [
-          OnzeAvatar(
+          ProfileAvatarPicker(
+            userId: user.id,
             imageUrl: user.avatarUrl,
             name: user.fullName,
             radius: 48,
+            onAvatarChanged: () => ref.invalidate(currentUserProvider),
           ),
           const SizedBox(height: 16),
           Text(
