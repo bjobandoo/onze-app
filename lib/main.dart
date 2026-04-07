@@ -1,20 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-void main() {
-  runApp(const MainApp());
-}
+import 'app.dart';
+import 'core/config/app_config.dart';
+import 'core/utils/logger.dart';
 
-class MainApp extends StatelessWidget {
-  const MainApp({super.key});
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
 
-  @override
-  Widget build(BuildContext context) {
-    return const MaterialApp(
-      home: Scaffold(
-        body: Center(
-          child: Text('Hello World!'),
-        ),
-      ),
-    );
-  }
+  // Cargar variables de entorno
+  await dotenv.load(fileName: '.env');
+
+  // Inicializar Supabase
+  await Supabase.initialize(
+    url: AppConfig.supabaseUrl,
+    anonKey: AppConfig.supabaseAnonKey,
+  );
+
+  log.i('Onze iniciada — entorno: ${AppConfig.environment}');
+
+  runApp(
+    const ProviderScope(
+      child: OnzeApp(),
+    ),
+  );
 }

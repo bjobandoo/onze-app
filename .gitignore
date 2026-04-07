@@ -1,3 +1,6 @@
+# Variables de entorno — nunca commitear
+.env
+
 # Miscellaneous
 *.class
 *.log
