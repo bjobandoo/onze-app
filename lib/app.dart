@@ -6,10 +6,11 @@ import 'core/theme/onze_theme.dart';
 
 /// Raíz de la aplicación.
 ///
-/// Configura el router (go_router), el tema oscuro de Onze y el
-/// [ProviderScope] ya está definido en [main.dart].
+/// Recibe el [ProviderContainer] para construir el router con auth guard.
 class OnzeApp extends ConsumerWidget {
-  const OnzeApp({super.key});
+  const OnzeApp({super.key, required this.container});
+
+  final ProviderContainer container;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -17,7 +18,7 @@ class OnzeApp extends ConsumerWidget {
       title: 'Onze',
       debugShowCheckedModeBanner: false,
       theme: OnzeTheme.dark,
-      routerConfig: appRouter,
+      routerConfig: buildAppRouter(container),
     );
   }
 }

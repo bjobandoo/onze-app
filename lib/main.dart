@@ -10,10 +10,8 @@ import 'core/utils/logger.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Cargar variables de entorno
   await dotenv.load(fileName: '.env');
 
-  // Inicializar Supabase
   await Supabase.initialize(
     url: AppConfig.supabaseUrl,
     anonKey: AppConfig.supabaseAnonKey,
@@ -21,9 +19,13 @@ Future<void> main() async {
 
   log.i('Onze iniciada — entorno: ${AppConfig.environment}');
 
+  // Crear el ProviderContainer antes del runApp para pasarlo al router
+  final container = ProviderContainer();
+
   runApp(
-    const ProviderScope(
-      child: OnzeApp(),
+    UncontrolledProviderScope(
+      container: container,
+      child: OnzeApp(container: container),
     ),
   );
 }
