@@ -1,11 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../features/auth/presentation/providers/auth_providers.dart';
 import '../../features/auth/presentation/screens/create_profile_screen.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/otp_screen.dart';
 import '../../features/home/presentation/screens/home_screen.dart';
+import '../../features/profile/presentation/screens/edit_profile_screen.dart';
+import '../../features/profile/presentation/screens/profile_screen.dart';
 import '../../shared/services/supabase_service.dart';
 import '../utils/go_router_refresh_stream.dart';
 
@@ -15,12 +16,11 @@ abstract final class AppRoutes {
   static const String otp = '/otp';
   static const String createProfile = '/create-profile';
   static const String home = '/home';
+  static const String profile = '/profile';
+  static const String editProfile = '/profile/edit';
 }
 
 /// Construye el router con auth guard a partir del [ProviderContainer].
-///
-/// Necesita acceso al container de Riverpod para leer [authStateChangesProvider]
-/// sin depender de un BuildContext.
 GoRouter buildAppRouter(ProviderContainer container) {
   return GoRouter(
     initialLocation: AppRoutes.login,
@@ -36,10 +36,7 @@ GoRouter buildAppRouter(ProviderContainer container) {
           path == AppRoutes.otp ||
           path == AppRoutes.createProfile;
 
-      // Sin sesión → siempre al login
       if (!isLoggedIn && !isAuthRoute) return AppRoutes.login;
-
-      // Con sesión activa → no dejar volver al login
       if (isLoggedIn && path == AppRoutes.login) return AppRoutes.home;
 
       return null;
@@ -67,6 +64,19 @@ GoRouter buildAppRouter(ProviderContainer container) {
         path: AppRoutes.home,
         name: 'home',
         builder: (context, state) => const HomeScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.profile,
+        name: 'profile',
+        builder: (context, state) => const ProfileScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.editProfile,
+        name: 'edit-profile',
+        builder: (context, state) {
+          final args = state.extra! as EditProfileArgs;
+          return EditProfileScreen(args: args);
+        },
       ),
     ],
   );

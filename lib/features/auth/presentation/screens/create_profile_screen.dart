@@ -7,6 +7,7 @@ import '../../../../core/routing/app_router.dart';
 import '../../../../core/theme/onze_colors.dart';
 import '../../../../shared/models/player_enums.dart';
 import '../../../../shared/widgets/onze_button.dart';
+import '../../../../shared/widgets/onze_select_chip.dart';
 import '../../../../shared/widgets/onze_text_field.dart';
 import '../providers/auth_providers.dart';
 
@@ -154,7 +155,7 @@ class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
       runSpacing: 8,
       children: PlayerPosition.values.map((pos) {
         final isSelected = _position == pos;
-        return _SelectChip(
+        return OnzeSelectChip(
           label: pos.label,
           isSelected: isSelected,
           onTap: () => setState(() => _position = pos),
@@ -168,7 +169,7 @@ class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
       spacing: 8,
       children: DominantFoot.values.map((foot) {
         final isSelected = _dominantFoot == foot;
-        return _SelectChip(
+        return OnzeSelectChip(
           label: foot.label,
           isSelected: isSelected,
           onTap: () => setState(() => _dominantFoot = foot),
@@ -182,7 +183,7 @@ class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
       spacing: 8,
       children: ExperienceLevel.values.map((level) {
         final isSelected = _experience == level;
-        return _SelectChip(
+        return OnzeSelectChip(
           label: level.label,
           isSelected: isSelected,
           onTap: () => setState(() => _experience = level),
@@ -218,44 +219,3 @@ class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
   }
 }
 
-/// Chip seleccionable del design system (uso interno de esta pantalla).
-class _SelectChip extends StatelessWidget {
-  const _SelectChip({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? OnzeColors.accent : OnzeColors.surface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: isSelected ? OnzeColors.highlight : OnzeColors.border,
-            width: isSelected ? 1.5 : 1,
-          ),
-        ),
-        child: Text(
-          label,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: isSelected
-                    ? OnzeColors.textPrimary
-                    : OnzeColors.textSecondary,
-                fontWeight:
-                    isSelected ? FontWeight.w600 : FontWeight.w400,
-              ),
-        ),
-      ),
-    );
-  }
-}
