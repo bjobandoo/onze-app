@@ -20,11 +20,14 @@ class AuthRepositoryImpl implements AuthRepository {
       await supabase.auth.signInWithOtp(phone: phone);
       log.i('OTP enviado correctamente a $phone');
     } on sb.AuthException catch (e) {
-      log.e('Error al enviar OTP', error: e);
-      throw AuthException(_mapAuthMessage(e.message), code: e.statusCode);
+      // DEV BYPASS: Twilio no disponible — ignorar error y continuar al flujo OTP.
+      // TODO: Eliminar este catch cuando Twilio esté funcionando.
+      log.w('DEV BYPASS sendOtp: Twilio falló (${e.message}), continuando igual');
     } catch (e, st) {
-      log.e('Error inesperado al enviar OTP', error: e, stackTrace: st);
-      throw const NetworkException('Error de conexión. Intenta nuevamente.');
+      // DEV BYPASS: idem.
+      // TODO: Eliminar este catch cuando Twilio esté funcionando.
+      log.w('DEV BYPASS sendOtp: error inesperado, continuando igual',
+          error: e, stackTrace: st);
     }
   }
 
@@ -33,6 +36,11 @@ class AuthRepositoryImpl implements AuthRepository {
     required String phone,
     required String otpCode,
   }) async {
+    // DEV BYPASS: intentar verificación real; si falla (Twilio no disponible),
+    // crear sesión anónima para poder navegar en la app.
+    // Requiere "Anonymous Sign In" activado en Supabase Dashboard →
+    // Authentication → Providers → Anonymous Sign In.
+    // TODO: Eliminar el bloque catch cuando Twilio esté funcionando.
     try {
       log.d('Verificando OTP para $phone');
       final response = await supabase.auth.verifyOTP(
@@ -46,27 +54,44 @@ class AuthRepositoryImpl implements AuthRepository {
       }
 
       log.i('OTP verificado — userId: ${response.user!.id}');
+      return await _isNewUser(response.user!.id);
+    } catch (e) {
+      log.w('DEV BYPASS verifyOtp: OTP falló ($e), usando sesión anónima');
+      return await _signInAnonymouslyAndCheckProfile();
+    }
+  }
 
-      // Determinar si el usuario es nuevo consultando public.users
-      final profile = await supabase
-          .from('users')
-          .select('full_name')
-          .eq('id', response.user!.id)
-          .maybeSingle();
-
-      final fullName = profile?['full_name'] as String? ?? '';
-      final isNewUser = fullName.isEmpty;
-      log.d('¿Usuario nuevo? $isNewUser');
-      return isNewUser;
+  /// Crea o reutiliza una sesión anónima y devuelve si el usuario es nuevo.
+  /// Solo se usa en el bypass de desarrollo.
+  Future<bool> _signInAnonymouslyAndCheckProfile() async {
+    try {
+      final response = await supabase.auth.signInAnonymously();
+      if (response.session == null || response.user == null) {
+        throw const AuthException('No se pudo crear sesión de desarrollo.');
+      }
+      log.i('DEV BYPASS: sesión anónima — userId: ${response.user!.id}');
+      return await _isNewUser(response.user!.id);
     } on sb.AuthException catch (e) {
-      log.e('Error al verificar OTP', error: e);
+      log.e('Error en sesión anónima (¿activaste Anonymous Sign In?)', error: e);
       throw AuthException(_mapAuthMessage(e.message), code: e.statusCode);
-    } on AuthException {
-      rethrow;
     } catch (e, st) {
-      log.e('Error inesperado al verificar OTP', error: e, stackTrace: st);
+      log.e('Error inesperado en bypass anónimo', error: e, stackTrace: st);
       throw const NetworkException('Error de conexión. Intenta nuevamente.');
     }
+  }
+
+  /// Consulta public.users para determinar si el usuario necesita crear perfil.
+  Future<bool> _isNewUser(String userId) async {
+    final profile = await supabase
+        .from('users')
+        .select('full_name')
+        .eq('id', userId)
+        .maybeSingle();
+
+    final fullName = profile?['full_name'] as String? ?? '';
+    final isNewUser = fullName.isEmpty;
+    log.d('¿Usuario nuevo? $isNewUser');
+    return isNewUser;
   }
 
   @override
