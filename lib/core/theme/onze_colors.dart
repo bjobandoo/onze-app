@@ -33,4 +33,10 @@ abstract final class OnzeColors {
 
   /// Borde sutil para cards.
   static const Color border = Color(0xFF3A3A3C);
+
+  /// Superficie ligeramente elevada (sobre surface).
+  static const Color surfaceHigh = Color(0xFF2C2C2E);
+
+  /// Verde brillante al 8 % — para glows y overlays.
+  static const Color greenGlow = Color(0x1400BF00);
 }

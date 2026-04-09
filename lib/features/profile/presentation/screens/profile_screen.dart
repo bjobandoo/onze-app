@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/routing/app_router.dart';
 import '../../../../core/theme/onze_colors.dart';
 import '../../../../features/auth/presentation/providers/auth_providers.dart';
 import '../../../../shared/models/app_user.dart';
 import '../../../../shared/widgets/onze_button.dart';
-import '../../../../shared/widgets/onze_card.dart';
 import '../../domain/models/player_profile.dart';
 import '../providers/profile_providers.dart';
 import '../widgets/profile_avatar_picker.dart';
@@ -26,23 +26,20 @@ class ProfileScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mi perfil'),
+        title: const Text('MI PERFIL'),
         actions: [
           userAsync.whenOrNull(
                 data: (user) => user != null
                     ? IconButton(
                         icon: const Icon(Icons.edit_outlined),
                         tooltip: 'Editar perfil',
-                        onPressed: () {
-                          final profile = profileAsync.valueOrNull;
-                          context.push(
-                            AppRoutes.editProfile,
-                            extra: EditProfileArgs(
-                              user: user,
-                              profile: profile,
-                            ),
-                          );
-                        },
+                        onPressed: () => context.push(
+                          AppRoutes.editProfile,
+                          extra: EditProfileArgs(
+                            user: user,
+                            profile: profileAsync.valueOrNull,
+                          ),
+                        ),
                       )
                     : null,
               ) ??
@@ -50,7 +47,8 @@ class ProfileScreen extends ConsumerWidget {
         ],
       ),
       body: userAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () =>
+            const Center(child: CircularProgressIndicator()),
         error: (e, _) => _ErrorView(message: e.toString()),
         data: (user) {
           if (user == null) return const SizedBox.shrink();
@@ -58,6 +56,7 @@ class ProfileScreen extends ConsumerWidget {
             user: user,
             profileAsync: profileAsync,
             statsAsync: statsAsync,
+            ref: ref,
           );
         },
       ),
@@ -69,83 +68,131 @@ class ProfileScreen extends ConsumerWidget {
 // Contenido del perfil
 // ---------------------------------------------------------------------------
 
-class _ProfileContent extends ConsumerWidget {
+class _ProfileContent extends StatelessWidget {
   const _ProfileContent({
     required this.user,
     required this.profileAsync,
     required this.statsAsync,
+    required this.ref,
   });
 
   final AppUser user;
   final AsyncValue<PlayerProfile?> profileAsync;
   final AsyncValue<dynamic> statsAsync;
+  final WidgetRef ref;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 32),
-          _buildAvatarSection(context, user, ref),
-          const SizedBox(height: 32),
-          _buildStatsSection(context),
-          const SizedBox(height: 32),
-          _buildSportsSection(context),
-          const SizedBox(height: 32),
-          _buildBioSection(context),
-          const SizedBox(height: 32),
-          _buildAccountSection(context, ref),
-          const SizedBox(height: 40),
+          _buildGradientHeader(context),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 28),
+                _buildStatsSection(context),
+                const SizedBox(height: 28),
+                _buildSportsSection(context),
+                const SizedBox(height: 28),
+                _buildBioSection(context),
+                const SizedBox(height: 28),
+                _buildAccountSection(context),
+                const SizedBox(height: 40),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildAvatarSection(BuildContext context, AppUser user, WidgetRef ref) {
-    return Center(
-      child: Column(
+  Widget _buildGradientHeader(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 28, 20, 28),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF092009), Color(0xFF000000)],
+          stops: [0.0, 0.85],
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          ProfileAvatarPicker(
-            userId: user.id,
-            imageUrl: user.avatarUrl,
-            name: user.fullName,
-            radius: 48,
-            onAvatarChanged: () => ref.invalidate(currentUserProvider),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            user.fullName,
-            style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                  fontSize: 22,
-                ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            user.phone.replaceFirst('+593', '0'),
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          if (user.isSuspended) ...[
-            const SizedBox(height: 8),
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                color: OnzeColors.error.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Text(
-                'Cuenta suspendida',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: OnzeColors.error,
-                    ),
-              ),
-            ),
-          ],
+          _buildAvatar(),
+          const SizedBox(width: 20),
+          Expanded(child: _buildUserInfo(context)),
         ],
       ),
+    );
+  }
+
+  Widget _buildAvatar() {
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: OnzeColors.highlight, width: 2),
+      ),
+      child: ProfileAvatarPicker(
+        userId: user.id,
+        imageUrl: user.avatarUrl,
+        name: user.fullName,
+        radius: 44,
+        onAvatarChanged: () => ref.invalidate(currentUserProvider),
+      ),
+    );
+  }
+
+  Widget _buildUserInfo(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          user.fullName.toUpperCase(),
+          style: GoogleFonts.inter(
+            fontSize: 20,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.5,
+            color: OnzeColors.textPrimary,
+          ),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          user.phone.replaceFirst('+593', '0'),
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        if (user.isSuspended) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+            decoration: BoxDecoration(
+              color: OnzeColors.error.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: OnzeColors.error.withValues(alpha: 0.4),
+              ),
+            ),
+            child: Text(
+              'SUSPENDIDO',
+              style: GoogleFonts.inter(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.5,
+                color: OnzeColors.error,
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -153,7 +200,7 @@ class _ProfileContent extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionTitle(context, 'Estadísticas'),
+        const _SectionLabel('ESTADÍSTICAS'),
         const SizedBox(height: 12),
         statsAsync.when(
           loading: () => const LinearProgressIndicator(),
@@ -173,35 +220,33 @@ class _ProfileContent extends ConsumerWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _sectionTitle(context, 'Datos deportivos'),
+            const _SectionLabel('DATOS DEPORTIVOS'),
             const SizedBox(height: 12),
-            OnzeCard(
-              child: Column(
-                children: [
-                  if (profile.position != null)
-                    _InfoRow(
-                      icon: Icons.sports_soccer,
-                      label: 'Posición',
-                      value: profile.position!.label,
-                    ),
-                  if (profile.dominantFoot != null) ...[
-                    const Divider(height: 1),
-                    _InfoRow(
-                      icon: Icons.sports,
-                      label: 'Pie hábil',
-                      value: profile.dominantFoot!.label,
-                    ),
-                  ],
-                  if (profile.experienceLevel != null) ...[
-                    const Divider(height: 1),
-                    _InfoRow(
-                      icon: Icons.bar_chart,
-                      label: 'Experiencia',
-                      value: profile.experienceLevel!.label,
-                    ),
-                  ],
+            _DataCard(
+              children: [
+                if (profile.position != null)
+                  _InfoRow(
+                    icon: Icons.sports_soccer_outlined,
+                    label: 'Posición',
+                    value: profile.position!.label,
+                  ),
+                if (profile.dominantFoot != null) ...[
+                  const Divider(height: 1),
+                  _InfoRow(
+                    icon: Icons.sports_outlined,
+                    label: 'Pie hábil',
+                    value: profile.dominantFoot!.label,
+                  ),
                 ],
-              ),
+                if (profile.experienceLevel != null) ...[
+                  const Divider(height: 1),
+                  _InfoRow(
+                    icon: Icons.bar_chart,
+                    label: 'Experiencia',
+                    value: profile.experienceLevel!.label,
+                  ),
+                ],
+              ],
             ),
           ],
         );
@@ -217,13 +262,15 @@ class _ProfileContent extends ConsumerWidget {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _sectionTitle(context, 'Sobre mí'),
+                const _SectionLabel('SOBRE MÍ'),
                 const SizedBox(height: 12),
-                OnzeCard(
-                  child: Text(
-                    bio,
-                    style: Theme.of(context).textTheme.bodyLarge,
-                  ),
+                _DataCard(
+                  children: [
+                    Text(
+                      bio,
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                  ],
                 ),
               ],
             );
@@ -232,27 +279,21 @@ class _ProfileContent extends ConsumerWidget {
         const SizedBox.shrink();
   }
 
-  Widget _buildAccountSection(BuildContext context, WidgetRef ref) {
+  Widget _buildAccountSection(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionTitle(context, 'Cuenta'),
+        const _SectionLabel('CUENTA'),
         const SizedBox(height: 12),
         OnzeButton(
           label: 'Cerrar sesión',
+          icon: Icons.logout,
+          variant: OnzeButtonVariant.outline,
           onPressed: () async {
             await ref.read(authRepositoryProvider).signOut();
           },
-          icon: Icons.logout,
         ),
       ],
-    );
-  }
-
-  Widget _sectionTitle(BuildContext context, String title) {
-    return Text(
-      title,
-      style: Theme.of(context).textTheme.headlineMedium,
     );
   }
 }
@@ -260,6 +301,38 @@ class _ProfileContent extends ConsumerWidget {
 // ---------------------------------------------------------------------------
 // Widgets auxiliares
 // ---------------------------------------------------------------------------
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: Theme.of(context).textTheme.labelSmall,
+    );
+  }
+}
+
+class _DataCard extends StatelessWidget {
+  const _DataCard({required this.children});
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: OnzeColors.surfaceHigh,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        children: children,
+      ),
+    );
+  }
+}
 
 class _InfoRow extends StatelessWidget {
   const _InfoRow({
@@ -275,23 +348,25 @@ class _InfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: 14),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: OnzeColors.textSecondary),
+          Icon(icon, size: 16, color: OnzeColors.textSecondary),
           const SizedBox(width: 12),
           Text(
             label,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: OnzeColors.textSecondary,
-                ),
+            style: Theme.of(context)
+                .textTheme
+                .bodyMedium
+                ?.copyWith(color: OnzeColors.textSecondary),
           ),
           const Spacer(),
           Text(
             value,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+            style: Theme.of(context)
+                .textTheme
+                .bodyMedium
+                ?.copyWith(fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -320,4 +395,3 @@ class _ErrorView extends StatelessWidget {
     );
   }
 }
-

@@ -23,7 +23,7 @@ abstract final class OnzeTheme {
       ),
       textTheme: _buildTextTheme(base.textTheme),
       cardTheme: const CardThemeData(
-        color: OnzeColors.surface,
+        color: OnzeColors.surfaceHigh,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.all(Radius.circular(12)),
           side: BorderSide(color: OnzeColors.border, width: 1),
@@ -33,7 +33,7 @@ abstract final class OnzeTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: OnzeColors.surface,
+        fillColor: OnzeColors.surfaceHigh,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: OnzeColors.border),
@@ -57,13 +57,16 @@ abstract final class OnzeTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: OnzeColors.accent,
           foregroundColor: OnzeColors.textPrimary,
+          disabledBackgroundColor: OnzeColors.surface,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          minimumSize: const Size(double.infinity, 56),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
           textStyle: GoogleFonts.inter(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 1.5,
           ),
         ),
       ),
@@ -72,6 +75,7 @@ abstract final class OnzeTheme {
         foregroundColor: OnzeColors.textPrimary,
         elevation: 0,
         centerTitle: false,
+        surfaceTintColor: Colors.transparent,
       ),
       dividerTheme: const DividerThemeData(
         color: OnzeColors.border,
@@ -89,16 +93,23 @@ abstract final class OnzeTheme {
 
   static TextTheme _buildTextTheme(TextTheme base) {
     return base.copyWith(
-      // Display — títulos grandes de pantalla
+      // Hero — wordmark y títulos de pantalla principales
       displayLarge: GoogleFonts.inter(
         fontSize: 28,
         fontWeight: FontWeight.w700,
         color: OnzeColors.textPrimary,
+        letterSpacing: -0.5,
       ),
-      // Heading — títulos de sección
+      // Headings
+      headlineLarge: GoogleFonts.inter(
+        fontSize: 22,
+        fontWeight: FontWeight.w700,
+        color: OnzeColors.textPrimary,
+        letterSpacing: -0.3,
+      ),
       headlineMedium: GoogleFonts.inter(
-        fontSize: 20,
-        fontWeight: FontWeight.w600,
+        fontSize: 18,
+        fontWeight: FontWeight.w700,
         color: OnzeColors.textPrimary,
       ),
       // Body
@@ -120,9 +131,17 @@ abstract final class OnzeTheme {
       ),
       // Button
       labelLarge: GoogleFonts.inter(
-        fontSize: 15,
-        fontWeight: FontWeight.w600,
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 1.5,
         color: OnzeColors.textPrimary,
+      ),
+      // Etiquetas ALL CAPS de sección (ESTADÍSTICAS, QUÉ QUIERES HACER, etc.)
+      labelSmall: GoogleFonts.inter(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 2.0,
+        color: OnzeColors.textSecondary,
       ),
     );
   }

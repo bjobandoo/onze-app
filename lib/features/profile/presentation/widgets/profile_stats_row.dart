@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/onze_colors.dart';
 import '../../domain/models/player_stats.dart';
 
-/// Fila de estadísticas de partidos: PJ / V / E / D y % victorias.
+/// Fila de estadísticas — celdas bold estilo Nike.
 class ProfileStatsRow extends StatelessWidget {
   const ProfileStatsRow({super.key, required this.stats});
 
@@ -11,52 +12,38 @@ class ProfileStatsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      decoration: BoxDecoration(
-        color: OnzeColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: OnzeColors.border),
-      ),
-      child: Row(
-        children: [
-          _StatCell(
-            value: stats.matchesPlayed.toString(),
-            label: 'Partidos',
-          ),
-          _divider(),
-          _StatCell(
-            value: stats.wins.toString(),
-            label: 'Victorias',
-            valueColor: OnzeColors.highlight,
-          ),
-          _divider(),
-          _StatCell(
-            value: stats.draws.toString(),
-            label: 'Empates',
-          ),
-          _divider(),
-          _StatCell(
-            value: stats.losses.toString(),
-            label: 'Derrotas',
-            valueColor: OnzeColors.error,
-          ),
-          _divider(),
-          _StatCell(
-            value: _formatRate(stats.winRate),
-            label: '% Victorias',
-            valueColor: OnzeColors.highlight,
-          ),
-        ],
-      ),
+    return Row(
+      children: [
+        _StatCell(
+          value: stats.matchesPlayed.toString(),
+          label: 'Partidos',
+        ),
+        const SizedBox(width: 8),
+        _StatCell(
+          value: stats.wins.toString(),
+          label: 'Victorias',
+          valueColor: OnzeColors.highlight,
+        ),
+        const SizedBox(width: 8),
+        _StatCell(
+          value: stats.draws.toString(),
+          label: 'Empates',
+        ),
+        const SizedBox(width: 8),
+        _StatCell(
+          value: stats.losses.toString(),
+          label: 'Derrotas',
+          valueColor: OnzeColors.error,
+        ),
+        const SizedBox(width: 8),
+        _StatCell(
+          value: _formatRate(stats.winRate),
+          label: '% Win',
+          valueColor: OnzeColors.highlight,
+        ),
+      ],
     );
   }
-
-  Widget _divider() => Container(
-        width: 1,
-        height: 36,
-        color: OnzeColors.border,
-      );
 
   String _formatRate(double rate) => '${(rate * 100).round()}%';
 }
@@ -75,22 +62,36 @@ class _StatCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  color: valueColor ?? OnzeColors.textPrimary,
-                  fontSize: 18,
-                ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.bodySmall,
-            textAlign: TextAlign.center,
-          ),
-        ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: OnzeColors.surfaceHigh,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Column(
+          children: [
+            Text(
+              value,
+              style: GoogleFonts.inter(
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+                color: valueColor ?? OnzeColors.textPrimary,
+                height: 1.0,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label.toUpperCase(),
+              style: GoogleFonts.inter(
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.0,
+                color: OnzeColors.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }

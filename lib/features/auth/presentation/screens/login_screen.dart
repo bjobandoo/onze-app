@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/routing/app_router.dart';
 import '../../../../core/theme/onze_colors.dart';
 import '../../../../shared/widgets/onze_button.dart';
+import '../../domain/models/phone_auth_state.dart';
 import '../providers/auth_providers.dart';
 import '../widgets/phone_input_field.dart';
-import '../../domain/models/phone_auth_state.dart';
 
-/// Pantalla de login: ingreso del número de WhatsApp.
+/// Pantalla de login — estilo editorial Nike.
+///
+/// Fondo con radial gradient verde oscuro → negro.
+/// Wordmark gigante en la zona superior.
+/// Formulario limpio anclado al fondo.
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
@@ -34,7 +39,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       return;
     }
     setState(() => _fieldError = null);
-
     final phone = PhoneInputField.toE164(_phoneController.text);
     await ref.read(phoneAuthProvider.notifier).sendOtp(phone);
   }
@@ -43,7 +47,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(phoneAuthProvider);
 
-    // Navegar a OTP cuando el código fue enviado
     ref.listen(phoneAuthProvider, (_, next) {
       if (next is PhoneAuthOtpSent) {
         context.push(AppRoutes.otp, extra: next.phone);
@@ -55,83 +58,125 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         authState is PhoneAuthError ? authState.message : null;
 
     return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 64),
-              _buildHeader(context),
-              const SizedBox(height: 48),
-              _buildForm(isLoading),
-              if (errorMessage != null) ...[
-                const SizedBox(height: 16),
-                _buildErrorBanner(errorMessage),
-              ],
-              const SizedBox(height: 24),
-              OnzeButton(
-                label: 'Enviar código por WhatsApp',
-                onPressed: isLoading ? null : _submit,
-                isLoading: isLoading,
+      body: Stack(
+        children: [
+          _buildBackground(),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 28),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 56),
+                  _buildWordmark(),
+                  const Spacer(),
+                  _buildFormSection(isLoading, errorMessage),
+                  const SizedBox(height: 24),
+                  OnzeButton(
+                    label: 'Continuar',
+                    onPressed: isLoading ? null : _submit,
+                    isLoading: isLoading,
+                  ),
+                  const SizedBox(height: 20),
+                  _buildFooter(context),
+                  const SizedBox(height: 32),
+                ],
               ),
-              const Spacer(),
-              _buildFooter(context),
-              const SizedBox(height: 24),
-            ],
+            ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBackground() {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: RadialGradient(
+          center: Alignment(-0.8, -0.9),
+          radius: 1.3,
+          colors: [Color(0xFF002800), Colors.black],
+          stops: [0.0, 0.65],
         ),
       ),
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildWordmark() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'ONZE',
-          style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                color: OnzeColors.highlight,
-                letterSpacing: 4,
-              ),
+          style: GoogleFonts.inter(
+            fontSize: 72,
+            fontWeight: FontWeight.w900,
+            color: OnzeColors.textPrimary,
+            letterSpacing: -3,
+            height: 1.0,
+          ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
+        Container(
+          width: 40,
+          height: 3,
+          color: OnzeColors.highlight,
+        ),
+        const SizedBox(height: 14),
         Text(
-          'Ingresa tu número de WhatsApp\npara recibir tu código de acceso.',
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: OnzeColors.textSecondary,
-              ),
+          'IBARRA · ECUADOR',
+          style: GoogleFonts.inter(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 3.0,
+            color: OnzeColors.textSecondary,
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildForm(bool isLoading) {
-    return PhoneInputField(
-      controller: _phoneController,
-      errorText: _fieldError,
-      autofocus: true,
-      onSubmitted: isLoading ? null : _submit,
+  Widget _buildFormSection(bool isLoading, String? errorMessage) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Ingresa tu número de WhatsApp',
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: OnzeColors.textSecondary,
+              ),
+        ),
+        const SizedBox(height: 12),
+        PhoneInputField(
+          controller: _phoneController,
+          errorText: _fieldError,
+          autofocus: true,
+          onSubmitted: isLoading ? null : _submit,
+        ),
+        if (errorMessage != null) ...[
+          const SizedBox(height: 12),
+          _buildErrorBanner(errorMessage),
+        ],
+      ],
     );
   }
 
   Widget _buildErrorBanner(String message) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: OnzeColors.error.withValues(alpha: 0.12),
+        color: OnzeColors.error.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: OnzeColors.error.withValues(alpha: 0.4)),
+        border: Border.all(color: OnzeColors.error.withValues(alpha: 0.35)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline, color: OnzeColors.error, size: 18),
+          const Icon(Icons.error_outline, color: OnzeColors.error, size: 16),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               message,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: OnzeColors.error,
                   ),
             ),
@@ -143,9 +188,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Widget _buildFooter(BuildContext context) {
     return Text(
-      'Al continuar aceptas los términos de servicio de Onze.\nSolo para jugadores en Ibarra, Ecuador.',
+      'Al continuar aceptas los términos de servicio de Onze.',
       textAlign: TextAlign.center,
-      style: Theme.of(context).textTheme.bodySmall,
+      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            letterSpacing: 0,
+          ),
     );
   }
 }
