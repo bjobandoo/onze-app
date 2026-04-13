@@ -13,13 +13,16 @@
 -- Tipos enumerados
 -- ---------------------------------------------------------------------------
 
-CREATE TYPE field_type AS ENUM ('5v5', '6v6', '7v7', '8v8');
+DO $$ BEGIN
+  CREATE TYPE field_type AS ENUM ('5v5', '6v6', '7v7', '8v8');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- ---------------------------------------------------------------------------
--- Tabla: fields (canchas)
+-- Tabla: fields
 -- ---------------------------------------------------------------------------
 
-CREATE TABLE public.fields (
+CREATE TABLE IF NOT EXISTS public.fields (
   id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id       uuid NOT NULL REFERENCES public.users(id) ON DELETE RESTRICT,
   name           text NOT NULL,
@@ -37,19 +40,16 @@ CREATE TABLE public.fields (
 
 COMMENT ON TABLE public.fields IS 'Canchas sintéticas registradas en Onze. Requieren validación del admin.';
 
--- Índices
-CREATE INDEX idx_fields_owner_id  ON public.fields (owner_id);
-CREATE INDEX idx_fields_is_active ON public.fields (is_active);
-CREATE INDEX idx_fields_verified  ON public.fields (verified);
--- Índice espacial aproximado (lat/lon) para búsquedas geográficas básicas
-CREATE INDEX idx_fields_location  ON public.fields (latitude, longitude);
+CREATE INDEX IF NOT EXISTS idx_fields_owner_id  ON public.fields (owner_id);
+CREATE INDEX IF NOT EXISTS idx_fields_is_active ON public.fields (is_active);
+CREATE INDEX IF NOT EXISTS idx_fields_verified  ON public.fields (verified);
+CREATE INDEX IF NOT EXISTS idx_fields_location  ON public.fields (latitude, longitude);
 
 -- ---------------------------------------------------------------------------
 -- Tabla: field_schedules
--- Bloques horarios disponibles por día de la semana.
 -- ---------------------------------------------------------------------------
 
-CREATE TABLE public.field_schedules (
+CREATE TABLE IF NOT EXISTS public.field_schedules (
   id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   field_id     uuid NOT NULL REFERENCES public.fields(id) ON DELETE CASCADE,
   day_of_week  integer NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
@@ -63,16 +63,14 @@ CREATE TABLE public.field_schedules (
 COMMENT ON TABLE public.field_schedules IS 'Horarios recurrentes disponibles por día de la semana.';
 COMMENT ON COLUMN public.field_schedules.day_of_week IS '0=domingo, 1=lunes, ..., 6=sábado';
 
--- Índices
-CREATE INDEX idx_field_schedules_field_id ON public.field_schedules (field_id);
-CREATE INDEX idx_field_schedules_day      ON public.field_schedules (field_id, day_of_week);
+CREATE INDEX IF NOT EXISTS idx_field_schedules_field_id ON public.field_schedules (field_id);
+CREATE INDEX IF NOT EXISTS idx_field_schedules_day      ON public.field_schedules (field_id, day_of_week);
 
 -- ---------------------------------------------------------------------------
 -- Tabla: field_blocked_slots
--- Bloqueos manuales de horarios (mantenimiento, eventos externos).
 -- ---------------------------------------------------------------------------
 
-CREATE TABLE public.field_blocked_slots (
+CREATE TABLE IF NOT EXISTS public.field_blocked_slots (
   id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   field_id   uuid NOT NULL REFERENCES public.fields(id) ON DELETE CASCADE,
   date       date NOT NULL,
@@ -84,15 +82,13 @@ CREATE TABLE public.field_blocked_slots (
 
 COMMENT ON TABLE public.field_blocked_slots IS 'Bloqueos manuales de horarios por el dueño de cancha.';
 
--- Índices
-CREATE INDEX idx_blocked_slots_field_date ON public.field_blocked_slots (field_id, date);
+CREATE INDEX IF NOT EXISTS idx_blocked_slots_field_date ON public.field_blocked_slots (field_id, date);
 
 -- ---------------------------------------------------------------------------
 -- Tabla: field_reviews
--- Reseñas y calificaciones de canchas por jugadores.
 -- ---------------------------------------------------------------------------
 
-CREATE TABLE public.field_reviews (
+CREATE TABLE IF NOT EXISTS public.field_reviews (
   id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   field_id   uuid NOT NULL REFERENCES public.fields(id) ON DELETE CASCADE,
   user_id    uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
@@ -104,9 +100,8 @@ CREATE TABLE public.field_reviews (
 
 COMMENT ON TABLE public.field_reviews IS 'Reseñas de canchas. Un usuario puede reseñar una cancha una sola vez.';
 
--- Índices
-CREATE INDEX idx_field_reviews_field_id ON public.field_reviews (field_id);
-CREATE INDEX idx_field_reviews_user_id  ON public.field_reviews (user_id);
+CREATE INDEX IF NOT EXISTS idx_field_reviews_field_id ON public.field_reviews (field_id);
+CREATE INDEX IF NOT EXISTS idx_field_reviews_user_id  ON public.field_reviews (user_id);
 
 -- ---------------------------------------------------------------------------
 -- Row Level Security
@@ -117,19 +112,19 @@ ALTER TABLE public.field_schedules ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.field_blocked_slots ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.field_reviews ENABLE ROW LEVEL SECURITY;
 
--- fields: visibles para todos los autenticados
+DROP POLICY IF EXISTS "autenticados_ven_canchas_activas" ON public.fields;
 CREATE POLICY "autenticados_ven_canchas_activas"
   ON public.fields FOR SELECT
   TO authenticated
   USING (is_active = true AND verified = true);
 
--- fields: el dueño ve todas sus canchas (incluso no verificadas)
+DROP POLICY IF EXISTS "dueno_ve_sus_canchas" ON public.fields;
 CREATE POLICY "dueno_ve_sus_canchas"
   ON public.fields FOR SELECT
   TO authenticated
   USING (owner_id = auth.uid());
 
--- fields: el dueño puede registrar canchas
+DROP POLICY IF EXISTS "dueno_registra_cancha" ON public.fields;
 CREATE POLICY "dueno_registra_cancha"
   ON public.fields FOR INSERT
   TO authenticated
@@ -140,20 +135,20 @@ CREATE POLICY "dueno_registra_cancha"
     )
   );
 
--- fields: el dueño puede actualizar sus propias canchas
+DROP POLICY IF EXISTS "dueno_actualiza_su_cancha" ON public.fields;
 CREATE POLICY "dueno_actualiza_su_cancha"
   ON public.fields FOR UPDATE
   TO authenticated
   USING (owner_id = auth.uid())
   WITH CHECK (owner_id = auth.uid());
 
--- field_schedules: lectura pública para autenticados
+DROP POLICY IF EXISTS "autenticados_ven_horarios" ON public.field_schedules;
 CREATE POLICY "autenticados_ven_horarios"
   ON public.field_schedules FOR SELECT
   TO authenticated
   USING (true);
 
--- field_schedules: el dueño gestiona horarios de sus canchas
+DROP POLICY IF EXISTS "dueno_gestiona_horarios" ON public.field_schedules;
 CREATE POLICY "dueno_gestiona_horarios"
   ON public.field_schedules FOR ALL
   TO authenticated
@@ -170,12 +165,13 @@ CREATE POLICY "dueno_gestiona_horarios"
     )
   );
 
--- field_blocked_slots: el dueño gestiona bloqueos de sus canchas
+DROP POLICY IF EXISTS "autenticados_ven_bloqueos" ON public.field_blocked_slots;
 CREATE POLICY "autenticados_ven_bloqueos"
   ON public.field_blocked_slots FOR SELECT
   TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "dueno_gestiona_bloqueos" ON public.field_blocked_slots;
 CREATE POLICY "dueno_gestiona_bloqueos"
   ON public.field_blocked_slots FOR ALL
   TO authenticated
@@ -192,26 +188,26 @@ CREATE POLICY "dueno_gestiona_bloqueos"
     )
   );
 
--- field_reviews: lectura pública
+DROP POLICY IF EXISTS "autenticados_ven_resenas" ON public.field_reviews;
 CREATE POLICY "autenticados_ven_resenas"
   ON public.field_reviews FOR SELECT
   TO authenticated
   USING (true);
 
--- field_reviews: usuarios autenticados pueden crear reseñas
+DROP POLICY IF EXISTS "usuario_crea_resena" ON public.field_reviews;
 CREATE POLICY "usuario_crea_resena"
   ON public.field_reviews FOR INSERT
   TO authenticated
   WITH CHECK (user_id = auth.uid());
 
--- field_reviews: el usuario puede actualizar su propia reseña
+DROP POLICY IF EXISTS "usuario_actualiza_su_resena" ON public.field_reviews;
 CREATE POLICY "usuario_actualiza_su_resena"
   ON public.field_reviews FOR UPDATE
   TO authenticated
   USING (user_id = auth.uid())
   WITH CHECK (user_id = auth.uid());
 
--- field_reviews: el usuario puede borrar su propia reseña
+DROP POLICY IF EXISTS "usuario_borra_su_resena" ON public.field_reviews;
 CREATE POLICY "usuario_borra_su_resena"
   ON public.field_reviews FOR DELETE
   TO authenticated

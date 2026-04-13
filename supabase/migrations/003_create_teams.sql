@@ -14,17 +14,26 @@
 -- Tipos enumerados
 -- ---------------------------------------------------------------------------
 
-CREATE TYPE team_member_role AS ENUM ('captain', 'member');
+DO $$ BEGIN
+  CREATE TYPE team_member_role AS ENUM ('captain', 'member');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TYPE join_request_type AS ENUM ('invitation', 'request');
+DO $$ BEGIN
+  CREATE TYPE join_request_type AS ENUM ('invitation', 'request');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TYPE join_request_status AS ENUM ('pending', 'accepted', 'rejected');
+DO $$ BEGIN
+  CREATE TYPE join_request_status AS ENUM ('pending', 'accepted', 'rejected');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- ---------------------------------------------------------------------------
 -- Tabla: teams
 -- ---------------------------------------------------------------------------
 
-CREATE TABLE public.teams (
+CREATE TABLE IF NOT EXISTS public.teams (
   id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name             text NOT NULL,
   crest_url        text,
@@ -46,16 +55,15 @@ CREATE TABLE public.teams (
 COMMENT ON TABLE public.teams IS 'Equipos de fútbol amateur registrados en Onze.';
 COMMENT ON COLUMN public.teams.elo_rating IS 'Puntuación ELO global del equipo. Inicia en 1000.';
 
--- Índices
-CREATE INDEX idx_teams_captain_id   ON public.teams (captain_id);
-CREATE INDEX idx_teams_elo_rating   ON public.teams (elo_rating DESC);
-CREATE INDEX idx_teams_is_suspended ON public.teams (is_suspended);
+CREATE INDEX IF NOT EXISTS idx_teams_captain_id   ON public.teams (captain_id);
+CREATE INDEX IF NOT EXISTS idx_teams_elo_rating   ON public.teams (elo_rating DESC);
+CREATE INDEX IF NOT EXISTS idx_teams_is_suspended ON public.teams (is_suspended);
 
 -- ---------------------------------------------------------------------------
 -- Tabla: team_members
 -- ---------------------------------------------------------------------------
 
-CREATE TABLE public.team_members (
+CREATE TABLE IF NOT EXISTS public.team_members (
   id        uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   team_id   uuid NOT NULL REFERENCES public.teams(id) ON DELETE CASCADE,
   user_id   uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
@@ -66,16 +74,14 @@ CREATE TABLE public.team_members (
 
 COMMENT ON TABLE public.team_members IS 'Miembros de cada equipo.';
 
--- Índices
-CREATE INDEX idx_team_members_team_id ON public.team_members (team_id);
-CREATE INDEX idx_team_members_user_id ON public.team_members (user_id);
+CREATE INDEX IF NOT EXISTS idx_team_members_team_id ON public.team_members (team_id);
+CREATE INDEX IF NOT EXISTS idx_team_members_user_id ON public.team_members (user_id);
 
 -- ---------------------------------------------------------------------------
 -- Tabla: team_join_requests
--- Solicitudes de unión e invitaciones (bidireccional).
 -- ---------------------------------------------------------------------------
 
-CREATE TABLE public.team_join_requests (
+CREATE TABLE IF NOT EXISTS public.team_join_requests (
   id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   team_id    uuid NOT NULL REFERENCES public.teams(id) ON DELETE CASCADE,
   user_id    uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
@@ -88,13 +94,12 @@ CREATE TABLE public.team_join_requests (
 COMMENT ON TABLE public.team_join_requests IS
   'Solicitudes de unión (type=request) e invitaciones (type=invitation).';
 
--- Índices
-CREATE INDEX idx_join_requests_team_id ON public.team_join_requests (team_id);
-CREATE INDEX idx_join_requests_user_id ON public.team_join_requests (user_id);
-CREATE INDEX idx_join_requests_status  ON public.team_join_requests (status);
+CREATE INDEX IF NOT EXISTS idx_join_requests_team_id ON public.team_join_requests (team_id);
+CREATE INDEX IF NOT EXISTS idx_join_requests_user_id ON public.team_join_requests (user_id);
+CREATE INDEX IF NOT EXISTS idx_join_requests_status  ON public.team_join_requests (status);
 
 -- ---------------------------------------------------------------------------
--- Función auxiliar de RLS: verificar si el usuario es capitán de un equipo
+-- Funciones auxiliares de RLS
 -- ---------------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION public.is_team_captain(p_team_id uuid)
@@ -109,7 +114,6 @@ AS $$
   );
 $$;
 
--- Función auxiliar: verificar si el usuario pertenece a un equipo
 CREATE OR REPLACE FUNCTION public.is_team_member(p_team_id uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -130,45 +134,44 @@ ALTER TABLE public.teams ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.team_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.team_join_requests ENABLE ROW LEVEL SECURITY;
 
--- teams: cualquier autenticado puede ver equipos
+DROP POLICY IF EXISTS "autenticados_ven_equipos" ON public.teams;
 CREATE POLICY "autenticados_ven_equipos"
   ON public.teams FOR SELECT
   TO authenticated
   USING (true);
 
--- teams: cualquier autenticado puede crear un equipo
+DROP POLICY IF EXISTS "autenticado_crea_equipo" ON public.teams;
 CREATE POLICY "autenticado_crea_equipo"
   ON public.teams FOR INSERT
   TO authenticated
   WITH CHECK (
     captain_id = auth.uid()
     AND created_by = auth.uid()
-    -- Límite: máx 2 equipos como capitán
     AND (
       SELECT COUNT(*) FROM public.teams WHERE captain_id = auth.uid()
     ) < 2
   );
 
--- teams: solo el capitán puede actualizar su equipo
+DROP POLICY IF EXISTS "capitan_actualiza_equipo" ON public.teams;
 CREATE POLICY "capitan_actualiza_equipo"
   ON public.teams FOR UPDATE
   TO authenticated
   USING (captain_id = auth.uid())
   WITH CHECK (captain_id = auth.uid());
 
--- team_members: cualquier autenticado puede ver miembros
+DROP POLICY IF EXISTS "autenticados_ven_miembros" ON public.team_members;
 CREATE POLICY "autenticados_ven_miembros"
   ON public.team_members FOR SELECT
   TO authenticated
   USING (true);
 
--- team_members: el capitán puede agregar miembros a su equipo
+DROP POLICY IF EXISTS "capitan_agrega_miembro" ON public.team_members;
 CREATE POLICY "capitan_agrega_miembro"
   ON public.team_members FOR INSERT
   TO authenticated
   WITH CHECK (public.is_team_captain(team_id));
 
--- team_members: el capitán puede expulsar miembros; el miembro puede salir
+DROP POLICY IF EXISTS "capitan_o_miembro_borra_membresia" ON public.team_members;
 CREATE POLICY "capitan_o_miembro_borra_membresia"
   ON public.team_members FOR DELETE
   TO authenticated
@@ -176,8 +179,7 @@ CREATE POLICY "capitan_o_miembro_borra_membresia"
     public.is_team_captain(team_id) OR user_id = auth.uid()
   );
 
--- team_join_requests: el usuario ve sus propias solicitudes e invitaciones
---                     y el capitán ve las de su equipo
+DROP POLICY IF EXISTS "usuario_o_capitan_ven_solicitudes" ON public.team_join_requests;
 CREATE POLICY "usuario_o_capitan_ven_solicitudes"
   ON public.team_join_requests FOR SELECT
   TO authenticated
@@ -186,7 +188,7 @@ CREATE POLICY "usuario_o_capitan_ven_solicitudes"
     OR public.is_team_captain(team_id)
   );
 
--- team_join_requests: un usuario puede enviar solicitud de unión
+DROP POLICY IF EXISTS "usuario_envia_solicitud" ON public.team_join_requests;
 CREATE POLICY "usuario_envia_solicitud"
   ON public.team_join_requests FOR INSERT
   TO authenticated
@@ -195,7 +197,7 @@ CREATE POLICY "usuario_envia_solicitud"
     OR (type = 'invitation' AND public.is_team_captain(team_id))
   );
 
--- team_join_requests: el capitán actualiza invitaciones; el usuario actualiza solicitudes propias
+DROP POLICY IF EXISTS "actualizar_solicitud" ON public.team_join_requests;
 CREATE POLICY "actualizar_solicitud"
   ON public.team_join_requests FOR UPDATE
   TO authenticated

@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app.dart';
 import 'core/config/app_config.dart';
 import 'core/utils/logger.dart';
+import 'shared/services/notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,6 +17,10 @@ Future<void> main() async {
     url: AppConfig.supabaseUrl,
     anonKey: AppConfig.supabaseAnonKey,
   );
+
+  // Inicializa Firebase y FCM (silencioso si google-services.json no existe)
+  await NotificationService.instance.initialize();
+  await NotificationService.instance.requestPermission();
 
   log.i('Onze iniciada — entorno: ${AppConfig.environment}');
 

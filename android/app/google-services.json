@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "821255576004",
+    "project_id": "onze-app-905df",
+    "storage_bucket": "onze-app-905df.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:821255576004:android:e4e73620172bb47e596c91",
+        "android_client_info": {
+          "package_name": "com.example.onze_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAFRU17oQyhLd-j7TGTnR3vVuywbeUZSrE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

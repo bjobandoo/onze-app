@@ -48,7 +48,7 @@ class ProfileScreen extends ConsumerWidget {
       ),
       body: userAsync.when(
         loading: () =>
-            const Center(child: CircularProgressIndicator()),
+            const Center(child: CircularProgressIndicator(color: OnzeColors.accent)),
         error: (e, _) => _ErrorView(message: e.toString()),
         data: (user) {
           if (user == null) return const SizedBox.shrink();
@@ -203,7 +203,7 @@ class _ProfileContent extends StatelessWidget {
         const _SectionLabel('ESTADÍSTICAS'),
         const SizedBox(height: 12),
         statsAsync.when(
-          loading: () => const LinearProgressIndicator(),
+          loading: () => const LinearProgressIndicator(color: OnzeColors.accent, backgroundColor: OnzeColors.surface),
           error: (e, _) => const SizedBox.shrink(),
           data: (stats) => ProfileStatsRow(stats: stats),
         ),
@@ -213,7 +213,7 @@ class _ProfileContent extends StatelessWidget {
 
   Widget _buildSportsSection(BuildContext context) {
     return profileAsync.when(
-      loading: () => const LinearProgressIndicator(),
+      loading: () => const LinearProgressIndicator(color: OnzeColors.accent, backgroundColor: OnzeColors.surface),
       error: (e, _) => const SizedBox.shrink(),
       data: (profile) {
         if (profile == null) return const SizedBox.shrink();

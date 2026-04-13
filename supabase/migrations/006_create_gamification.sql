@@ -8,6 +8,7 @@
 --   DROP TABLE IF EXISTS public.team_achievements;
 --   DROP TABLE IF EXISTS public.user_achievements;
 --   DROP TABLE IF EXISTS public.achievements;
+--   DROP TYPE IF EXISTS ranking_period_type;
 --   DROP TYPE IF EXISTS achievement_target_type;
 -- =============================================================================
 
@@ -15,16 +16,21 @@
 -- Tipos enumerados
 -- ---------------------------------------------------------------------------
 
-CREATE TYPE achievement_target_type AS ENUM ('user', 'team');
+DO $$ BEGIN
+  CREATE TYPE achievement_target_type AS ENUM ('user', 'team');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TYPE ranking_period_type AS ENUM ('biweekly', 'monthly');
+DO $$ BEGIN
+  CREATE TYPE ranking_period_type AS ENUM ('biweekly', 'monthly');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- ---------------------------------------------------------------------------
 -- Tabla: achievements
--- Catálogo de logros coleccionables (no afectan ELO).
 -- ---------------------------------------------------------------------------
 
-CREATE TABLE public.achievements (
+CREATE TABLE IF NOT EXISTS public.achievements (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   code        text NOT NULL UNIQUE,
   name        text NOT NULL,
@@ -40,10 +46,9 @@ COMMENT ON COLUMN public.achievements.code IS
 
 -- ---------------------------------------------------------------------------
 -- Tabla: user_achievements
--- Logros desbloqueados por usuarios.
 -- ---------------------------------------------------------------------------
 
-CREATE TABLE public.user_achievements (
+CREATE TABLE IF NOT EXISTS public.user_achievements (
   id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id        uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   achievement_id uuid NOT NULL REFERENCES public.achievements(id) ON DELETE CASCADE,
@@ -51,16 +56,14 @@ CREATE TABLE public.user_achievements (
   CONSTRAINT uq_user_achievement UNIQUE (user_id, achievement_id)
 );
 
--- Índices
-CREATE INDEX idx_user_achievements_user_id        ON public.user_achievements (user_id);
-CREATE INDEX idx_user_achievements_achievement_id ON public.user_achievements (achievement_id);
+CREATE INDEX IF NOT EXISTS idx_user_achievements_user_id        ON public.user_achievements (user_id);
+CREATE INDEX IF NOT EXISTS idx_user_achievements_achievement_id ON public.user_achievements (achievement_id);
 
 -- ---------------------------------------------------------------------------
 -- Tabla: team_achievements
--- Logros desbloqueados por equipos.
 -- ---------------------------------------------------------------------------
 
-CREATE TABLE public.team_achievements (
+CREATE TABLE IF NOT EXISTS public.team_achievements (
   id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   team_id        uuid NOT NULL REFERENCES public.teams(id) ON DELETE CASCADE,
   achievement_id uuid NOT NULL REFERENCES public.achievements(id) ON DELETE CASCADE,
@@ -68,16 +71,14 @@ CREATE TABLE public.team_achievements (
   CONSTRAINT uq_team_achievement UNIQUE (team_id, achievement_id)
 );
 
--- Índices
-CREATE INDEX idx_team_achievements_team_id        ON public.team_achievements (team_id);
-CREATE INDEX idx_team_achievements_achievement_id ON public.team_achievements (achievement_id);
+CREATE INDEX IF NOT EXISTS idx_team_achievements_team_id        ON public.team_achievements (team_id);
+CREATE INDEX IF NOT EXISTS idx_team_achievements_achievement_id ON public.team_achievements (achievement_id);
 
 -- ---------------------------------------------------------------------------
 -- Tabla: rewards
--- Recompensas canjeables (descuentos, consumos, etc.).
 -- ---------------------------------------------------------------------------
 
-CREATE TABLE public.rewards (
+CREATE TABLE IF NOT EXISTS public.rewards (
   id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name             text NOT NULL,
   description      text,
@@ -94,10 +95,9 @@ COMMENT ON COLUMN public.rewards.stock IS 'NULL = stock ilimitado.';
 
 -- ---------------------------------------------------------------------------
 -- Tabla: ranking_snapshots
--- Histórico de rankings por periodo (quincenal/mensual).
 -- ---------------------------------------------------------------------------
 
-CREATE TABLE public.ranking_snapshots (
+CREATE TABLE IF NOT EXISTS public.ranking_snapshots (
   id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   period_type       ranking_period_type NOT NULL,
   period_start      date NOT NULL,
@@ -114,17 +114,15 @@ CREATE TABLE public.ranking_snapshots (
 COMMENT ON TABLE public.ranking_snapshots IS
   'Snapshots de ranking al cierre de cada periodo. Generados por Edge Function programada.';
 
--- Índices
-CREATE INDEX idx_ranking_snapshots_period ON public.ranking_snapshots (period_type, period_start);
-CREATE INDEX idx_ranking_snapshots_team   ON public.ranking_snapshots (team_id);
-CREATE INDEX idx_ranking_snapshots_rank   ON public.ranking_snapshots (period_type, period_start, rank_position);
+CREATE INDEX IF NOT EXISTS idx_ranking_snapshots_period ON public.ranking_snapshots (period_type, period_start);
+CREATE INDEX IF NOT EXISTS idx_ranking_snapshots_team   ON public.ranking_snapshots (team_id);
+CREATE INDEX IF NOT EXISTS idx_ranking_snapshots_rank   ON public.ranking_snapshots (period_type, period_start, rank_position);
 
 -- ---------------------------------------------------------------------------
 -- Tabla: notifications
--- Notificaciones en-app por usuario.
 -- ---------------------------------------------------------------------------
 
-CREATE TABLE public.notifications (
+CREATE TABLE IF NOT EXISTS public.notifications (
   id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id    uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   type       text NOT NULL,
@@ -140,10 +138,9 @@ COMMENT ON TABLE public.notifications IS
 COMMENT ON COLUMN public.notifications.type IS
   'Ej: match_request, match_confirmed, team_invitation, sanction, result_reported.';
 
--- Índices
-CREATE INDEX idx_notifications_user_id    ON public.notifications (user_id);
-CREATE INDEX idx_notifications_read       ON public.notifications (user_id, read);
-CREATE INDEX idx_notifications_created_at ON public.notifications (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id    ON public.notifications (user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_read       ON public.notifications (user_id, read);
+CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON public.notifications (created_at DESC);
 
 -- ---------------------------------------------------------------------------
 -- Row Level Security
@@ -156,43 +153,43 @@ ALTER TABLE public.rewards ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ranking_snapshots ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
--- achievements: catálogo público para autenticados
+DROP POLICY IF EXISTS "autenticados_ven_logros" ON public.achievements;
 CREATE POLICY "autenticados_ven_logros"
   ON public.achievements FOR SELECT
   TO authenticated
   USING (true);
 
--- user_achievements: cualquier autenticado puede ver los logros desbloqueados
+DROP POLICY IF EXISTS "autenticados_ven_logros_usuario" ON public.user_achievements;
 CREATE POLICY "autenticados_ven_logros_usuario"
   ON public.user_achievements FOR SELECT
   TO authenticated
   USING (true);
 
--- team_achievements: ídem para equipos
+DROP POLICY IF EXISTS "autenticados_ven_logros_equipo" ON public.team_achievements;
 CREATE POLICY "autenticados_ven_logros_equipo"
   ON public.team_achievements FOR SELECT
   TO authenticated
   USING (true);
 
--- rewards: catálogo público para autenticados
+DROP POLICY IF EXISTS "autenticados_ven_recompensas" ON public.rewards;
 CREATE POLICY "autenticados_ven_recompensas"
   ON public.rewards FOR SELECT
   TO authenticated
   USING (active = true);
 
--- ranking_snapshots: público para autenticados (ranking es información pública)
+DROP POLICY IF EXISTS "autenticados_ven_ranking" ON public.ranking_snapshots;
 CREATE POLICY "autenticados_ven_ranking"
   ON public.ranking_snapshots FOR SELECT
   TO authenticated
   USING (true);
 
--- notifications: cada usuario solo ve las suyas
+DROP POLICY IF EXISTS "usuario_ve_sus_notificaciones" ON public.notifications;
 CREATE POLICY "usuario_ve_sus_notificaciones"
   ON public.notifications FOR SELECT
   TO authenticated
   USING (user_id = auth.uid());
 
--- notifications: el usuario puede marcar las suyas como leídas
+DROP POLICY IF EXISTS "usuario_marca_leida" ON public.notifications;
 CREATE POLICY "usuario_marca_leida"
   ON public.notifications FOR UPDATE
   TO authenticated

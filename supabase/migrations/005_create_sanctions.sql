@@ -14,26 +14,33 @@
 -- Tipos enumerados
 -- ---------------------------------------------------------------------------
 
-CREATE TYPE yellow_card_target AS ENUM ('user', 'team');
+DO $$ BEGIN
+  CREATE TYPE yellow_card_target AS ENUM ('user', 'team');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TYPE yellow_card_reason AS ENUM (
-  'false_report',
-  'late_cancellation',
-  'no_report',
-  'other'
-);
+DO $$ BEGIN
+  CREATE TYPE yellow_card_reason AS ENUM (
+    'false_report', 'late_cancellation', 'no_report', 'other'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TYPE appeal_status AS ENUM ('pending', 'approved', 'rejected');
+DO $$ BEGIN
+  CREATE TYPE appeal_status AS ENUM ('pending', 'approved', 'rejected');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE TYPE appeal_resolution_status AS ENUM ('pending', 'upheld', 'revoked');
+DO $$ BEGIN
+  CREATE TYPE appeal_resolution_status AS ENUM ('pending', 'upheld', 'revoked');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- ---------------------------------------------------------------------------
 -- Tabla: yellow_cards
--- Registro de tarjetas amarillas para auditoría y apelaciones.
--- Las rojas se derivan automáticamente al acumular 3 amarillas.
 -- ---------------------------------------------------------------------------
 
-CREATE TABLE public.yellow_cards (
+CREATE TABLE IF NOT EXISTS public.yellow_cards (
   id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   target_type       yellow_card_target NOT NULL,
   target_id         uuid NOT NULL,
@@ -49,17 +56,15 @@ COMMENT ON TABLE public.yellow_cards IS
 COMMENT ON COLUMN public.yellow_cards.target_id IS
   'UUID del usuario o equipo sancionado, según target_type.';
 
--- Índices
-CREATE INDEX idx_yellow_cards_target ON public.yellow_cards (target_type, target_id);
-CREATE INDEX idx_yellow_cards_match_id ON public.yellow_cards (match_id);
-CREATE INDEX idx_yellow_cards_issued_at ON public.yellow_cards (issued_at DESC);
+CREATE INDEX IF NOT EXISTS idx_yellow_cards_target    ON public.yellow_cards (target_type, target_id);
+CREATE INDEX IF NOT EXISTS idx_yellow_cards_match_id  ON public.yellow_cards (match_id);
+CREATE INDEX IF NOT EXISTS idx_yellow_cards_issued_at ON public.yellow_cards (issued_at DESC);
 
 -- ---------------------------------------------------------------------------
 -- Tabla: appeals
--- Apelaciones de tarjetas amarillas resueltas por el admin.
 -- ---------------------------------------------------------------------------
 
-CREATE TABLE public.appeals (
+CREATE TABLE IF NOT EXISTS public.appeals (
   id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   yellow_card_id uuid NOT NULL REFERENCES public.yellow_cards(id) ON DELETE CASCADE,
   submitted_by   uuid NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
@@ -76,10 +81,9 @@ CREATE TABLE public.appeals (
 COMMENT ON TABLE public.appeals IS
   'Apelaciones de tarjetas. Una tarjeta solo puede tener una apelación activa.';
 
--- Índices
-CREATE INDEX idx_appeals_submitted_by   ON public.appeals (submitted_by);
-CREATE INDEX idx_appeals_status         ON public.appeals (status);
-CREATE INDEX idx_appeals_yellow_card_id ON public.appeals (yellow_card_id);
+CREATE INDEX IF NOT EXISTS idx_appeals_submitted_by   ON public.appeals (submitted_by);
+CREATE INDEX IF NOT EXISTS idx_appeals_status         ON public.appeals (status);
+CREATE INDEX IF NOT EXISTS idx_appeals_yellow_card_id ON public.appeals (yellow_card_id);
 
 -- ---------------------------------------------------------------------------
 -- Row Level Security
@@ -88,7 +92,7 @@ CREATE INDEX idx_appeals_yellow_card_id ON public.appeals (yellow_card_id);
 ALTER TABLE public.yellow_cards ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.appeals ENABLE ROW LEVEL SECURITY;
 
--- yellow_cards: el propio usuario ve sus tarjetas; el capitán ve las de su equipo
+DROP POLICY IF EXISTS "usuario_ve_sus_tarjetas" ON public.yellow_cards;
 CREATE POLICY "usuario_ve_sus_tarjetas"
   ON public.yellow_cards FOR SELECT
   TO authenticated
@@ -100,16 +104,13 @@ CREATE POLICY "usuario_ve_sus_tarjetas"
     )
   );
 
--- yellow_cards: solo service_role (Edge Functions) puede insertar/actualizar
--- No se agrega política de INSERT/UPDATE para authenticated: service_role bypasses RLS
-
--- appeals: el que envió puede ver su apelación; service_role ve todo
+DROP POLICY IF EXISTS "usuario_ve_su_apelacion" ON public.appeals;
 CREATE POLICY "usuario_ve_su_apelacion"
   ON public.appeals FOR SELECT
   TO authenticated
   USING (submitted_by = auth.uid());
 
--- appeals: usuarios autenticados pueden crear apelaciones de sus propias tarjetas
+DROP POLICY IF EXISTS "usuario_crea_apelacion" ON public.appeals;
 CREATE POLICY "usuario_crea_apelacion"
   ON public.appeals FOR INSERT
   TO authenticated

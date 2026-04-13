@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/routing/app_router.dart';
 import 'core/theme/onze_theme.dart';
+import 'features/auth/presentation/providers/auth_providers.dart';
+import 'shared/services/notification_service.dart';
 
 /// Raíz de la aplicación.
 ///
@@ -14,6 +16,14 @@ class OnzeApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Guarda el token FCM en DB cuando el usuario se autentica.
+    ref.listen(currentUserProvider, (_, next) {
+      final userId = next.valueOrNull?.id;
+      if (userId != null) {
+        NotificationService.instance.saveTokenToDb(userId);
+      }
+    });
+
     return MaterialApp.router(
       title: 'Onze',
       debugShowCheckedModeBanner: false,

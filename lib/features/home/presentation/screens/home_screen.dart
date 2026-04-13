@@ -177,66 +177,56 @@ class _HomeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
           color: OnzeColors.surfaceHigh,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          child: Stack(
             children: [
-              // Barra verde izquierda
-              Container(
+              // Barra verde izquierda — se estira automáticamente al alto del contenido
+              const Positioned(
+                top: 0,
+                bottom: 0,
+                left: 0,
                 width: 4,
-                decoration: const BoxDecoration(
-                  color: OnzeColors.highlight,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(12),
-                    bottomLeft: Radius.circular(12),
-                  ),
-                ),
+                child: ColoredBox(color: OnzeColors.highlight),
               ),
               // Contenido
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 18,
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(icon, color: OnzeColors.highlight, size: 26),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              title.toUpperCase(),
-                              style: GoogleFonts.inter(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 1.0,
-                                color: OnzeColors.textPrimary,
-                              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(22, 18, 18, 18),
+                child: Row(
+                  children: [
+                    Icon(icon, color: OnzeColors.highlight, size: 26),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title.toUpperCase(),
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.0,
+                              color: OnzeColors.textPrimary,
                             ),
-                            const SizedBox(height: 3),
-                            Text(
-                              subtitle,
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            subtitle,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      const Icon(
-                        Icons.arrow_forward,
-                        color: OnzeColors.textSecondary,
-                        size: 18,
-                      ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(
+                      Icons.arrow_forward,
+                      color: OnzeColors.textSecondary,
+                      size: 18,
+                    ),
+                  ],
                 ),
               ),
             ],
