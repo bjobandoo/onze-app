@@ -14,7 +14,10 @@ import '../../features/fields/presentation/screens/field_schedules_screen.dart';
 import '../../features/fields/presentation/screens/fields_map_screen.dart';
 import '../../features/fields/presentation/screens/owner_fields_screen.dart';
 import '../../features/fields/presentation/screens/register_field_screen.dart';
+import '../../features/sanctions/presentation/screens/sanctions_screen.dart';
+import '../../features/stats/presentation/screens/ranking_screen.dart';
 import '../../features/teams/presentation/screens/create_team_screen.dart';
+import '../../features/teams/presentation/screens/edit_team_screen.dart';
 import '../../features/teams/presentation/screens/team_detail_screen.dart';
 import '../../features/teams/presentation/screens/team_invitations_screen.dart';
 import '../../features/teams/presentation/screens/teams_screen.dart';
@@ -39,12 +42,19 @@ abstract final class AppRoutes {
   /// Ruta dinámica de detalle de equipo.
   static String teamDetail(String teamId) => '/teams/$teamId';
 
+  /// Ruta de edición de un equipo.
+  static String editTeam(String teamId) => '/teams/$teamId/edit';
+
   /// Ruta de búsqueda de usuarios para invitar a un equipo.
   static String teamInvite(String teamId) => '/teams/$teamId/invite';
 
   // Desafíos / reservas
   static const String matchRequests = '/matches';
   static const String sendChallenge = '/matches/challenge';
+
+  // Ranking
+  static const String ranking = '/ranking';
+  static const String sanctions = '/sanctions';
 
   // Canchas
   static const String fieldsMap = '/fields-map';
@@ -145,6 +155,16 @@ GoRouter buildAppRouter(ProviderContainer container) {
         builder: (context, state) => const SendChallengeScreen(),
       ),
       GoRoute(
+        path: AppRoutes.ranking,
+        name: 'ranking',
+        builder: (context, state) => const RankingScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.sanctions,
+        name: 'sanctions',
+        builder: (context, state) => const SanctionsScreen(),
+      ),
+      GoRoute(
         path: AppRoutes.fieldsMap,
         name: 'fields-map',
         builder: (context, state) => const FieldsMapScreen(),
@@ -192,6 +212,14 @@ GoRouter buildAppRouter(ProviderContainer container) {
           return TeamDetailScreen(teamId: teamId);
         },
         routes: [
+          GoRoute(
+            path: 'edit',
+            name: 'edit-team',
+            builder: (context, state) {
+              final args = state.extra! as EditTeamArgs;
+              return EditTeamScreen(args: args);
+            },
+          ),
           GoRoute(
             path: 'invite',
             name: 'team-invite',

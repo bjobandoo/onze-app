@@ -529,10 +529,11 @@ void main() {
         captainId: 'cap',
         createdAt: DateTime(2025),
       );
-      final updated = original.copyWith(name: 'Actualizado');
-      expect(updated.name, 'Actualizado');
+      final updated = original.copyWith(shieldUrl: 'https://example.com/shield.jpg');
+      expect(updated.name, 'Original');
       expect(updated.id, 't-1');
       expect(updated.captainId, 'cap');
+      expect(updated.shieldUrl, 'https://example.com/shield.jpg');
     });
   });
 

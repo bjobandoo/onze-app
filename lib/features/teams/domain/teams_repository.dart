@@ -35,6 +35,12 @@ abstract class TeamsRepository {
     required Uint8List bytes,
   });
 
+  /// Actualiza campos editables de un equipo (descripción).
+  Future<void> updateTeam({
+    required String teamId,
+    String? description,
+  });
+
   /// Invita a [invitedUserId] a unirse al equipo (capitán → jugador).
   Future<void> inviteMember({
     required String teamId,
@@ -71,7 +77,13 @@ abstract class TeamsRepository {
     required String userId,
   });
 
-  /// Busca usuarios por nombre o teléfono.
+  /// Devuelve true si el nombre de equipo no está en uso.
+  Future<bool> isTeamNameAvailable(String name);
+
+  /// IDs de usuarios que ya tienen una invitación pendiente para [teamId].
+  Future<Set<String>> getPendingInvitedUserIds(String teamId);
+
+  /// Busca usuarios por username o teléfono.
   ///
   /// [query] debe tener al menos 2 caracteres.
   /// [excludeUserId] excluye al usuario actual de los resultados.

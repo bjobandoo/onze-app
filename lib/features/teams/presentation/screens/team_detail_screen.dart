@@ -12,19 +12,49 @@ import '../../../../features/auth/presentation/providers/auth_providers.dart';
 import '../../../../shared/widgets/onze_avatar.dart';
 import '../../../../shared/widgets/onze_button.dart';
 import '../../../../shared/widgets/onze_card.dart';
+import '../../../../features/sanctions/presentation/screens/sanctions_screen.dart';
+import '../../../../features/stats/presentation/widgets/team_stats_section.dart';
+import '../../domain/models/team.dart';
 import '../../domain/models/team_member.dart';
 import '../providers/teams_providers.dart';
+import 'edit_team_screen.dart';
 import '../widgets/join_request_tile.dart';
 import '../widgets/team_member_tile.dart';
 
 /// Pantalla de detalle de un equipo con miembros y solicitudes.
-class TeamDetailScreen extends ConsumerWidget {
+class TeamDetailScreen extends ConsumerStatefulWidget {
   const TeamDetailScreen({super.key, required this.teamId});
 
   final String teamId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TeamDetailScreen> createState() => _TeamDetailScreenState();
+}
+
+class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Invalida al entrar para que siempre se carguen datos frescos.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(teamDetailProvider(widget.teamId));
+      ref.invalidate(teamMembersProvider(widget.teamId));
+    });
+  }
+
+  Future<void> _refresh() async {
+    ref.invalidate(teamDetailProvider(widget.teamId));
+    ref.invalidate(teamMembersProvider(widget.teamId));
+    // Esperar a que ambos providers completen.
+    await Future.wait([
+      ref.read(teamDetailProvider(widget.teamId).future),
+      ref.read(teamMembersProvider(widget.teamId).future),
+    ]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final teamId = widget.teamId;
     final teamAsync = ref.watch(teamDetailProvider(teamId));
     final membersAsync = ref.watch(teamMembersProvider(teamId));
     final currentUserId =
@@ -34,6 +64,21 @@ class TeamDetailScreen extends ConsumerWidget {
       appBar: AppBar(
         title: teamAsync.whenOrNull(data: (t) => Text(t?.name ?? '')) ??
             const Text('Equipo'),
+        actions: [
+          teamAsync.whenOrNull(
+            data: (team) {
+              if (team == null || team.captainId != currentUserId) return null;
+              return IconButton(
+                icon: const Icon(Icons.edit_outlined),
+                tooltip: 'Editar equipo',
+                onPressed: () => context.push(
+                  AppRoutes.editTeam(team.id),
+                  extra: EditTeamArgs(team: team),
+                ),
+              );
+            },
+          ) ?? const SizedBox.shrink(),
+        ],
       ),
       body: teamAsync.when(
         loading: () => const Center(child: CircularProgressIndicator(color: OnzeColors.accent)),
@@ -45,13 +90,33 @@ class TeamDetailScreen extends ConsumerWidget {
 
           final isCaptain = team.captainId == currentUserId;
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Column(
+          return RefreshIndicator(
+            color: OnzeColors.accent,
+            onRefresh: _refresh,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 32),
-                _buildHeader(context, team.name, team.shieldUrl),
+                _buildHeader(context, team),
+                const SizedBox(height: 24),
+                // Sanciones del equipo (si hay tarjetas o suspensión)
+                if (team.isActivelySuspended || team.yellowCardsCount > 0) ...[
+                  const SizedBox(height: 16),
+                  SuspensionStatusCard(
+                    isSuspended: team.isSuspended,
+                    suspensionUntil: team.suspensionUntil,
+                    yellowCardsCount: team.yellowCardsCount,
+                    label: 'Estado del equipo',
+                  ),
+                ],
+                const SizedBox(height: 24),
+                // Estadísticas del equipo
+                const _SectionLabel('ESTADÍSTICAS'),
+                const SizedBox(height: 12),
+                TeamStatsSection(team: team),
                 const SizedBox(height: 32),
                 _buildMembersSection(
                   context,
@@ -70,26 +135,36 @@ class TeamDetailScreen extends ConsumerWidget {
                 const SizedBox(height: 40),
               ],
             ),
-          );
+          ),
+        );
         },
       ),
     );
   }
 
-  Widget _buildHeader(
-      BuildContext context, String name, String? shieldUrl) {
+  Widget _buildHeader(BuildContext context, Team team) {
     return Center(
       child: Column(
         children: [
-          OnzeAvatar(imageUrl: shieldUrl, name: name, radius: 48),
+          OnzeAvatar(imageUrl: team.shieldUrl, name: team.name, radius: 48),
           const SizedBox(height: 12),
           Text(
-            name,
+            team.name,
             style: Theme.of(context).textTheme.displayLarge?.copyWith(
                   fontSize: 22,
                 ),
             textAlign: TextAlign.center,
           ),
+          if (team.description != null && team.description!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              team.description!,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: OnzeColors.textSecondary,
+                  ),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ],
       ),
     );
@@ -123,7 +198,7 @@ class TeamDetailScreen extends ConsumerWidget {
                     color: OnzeColors.accent),
                 tooltip: 'Invitar jugador',
                 onPressed: () => context.push(
-                  AppRoutes.teamInvite(teamId),
+                  AppRoutes.teamInvite(widget.teamId),
                   extra: memberIds,
                 ),
               ),
@@ -153,7 +228,7 @@ class TeamDetailScreen extends ConsumerWidget {
   }
 
   Widget _buildRequestsSection(BuildContext context, WidgetRef ref) {
-    final requestsAsync = ref.watch(pendingRequestsForTeamProvider(teamId));
+    final requestsAsync = ref.watch(pendingRequestsForTeamProvider(widget.teamId));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -208,8 +283,8 @@ class TeamDetailScreen extends ConsumerWidget {
     try {
       await ref
           .read(teamsRepositoryProvider)
-          .removeMember(teamId: teamId, userId: userId);
-      ref.invalidate(teamMembersProvider(teamId));
+          .removeMember(teamId: widget.teamId, userId: userId);
+      ref.invalidate(teamMembersProvider(widget.teamId));
     } on OnzeException catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -235,8 +310,8 @@ class TeamDetailScreen extends ConsumerWidget {
         await repo.rejectJoinRequest(requestId);
       }
       ref
-        ..invalidate(pendingRequestsForTeamProvider(teamId))
-        ..invalidate(teamMembersProvider(teamId));
+        ..invalidate(pendingRequestsForTeamProvider(widget.teamId))
+        ..invalidate(teamMembersProvider(widget.teamId));
     } on OnzeException catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -278,7 +353,7 @@ class TeamDetailScreen extends ConsumerWidget {
     try {
       await ref
           .read(teamsRepositoryProvider)
-          .leaveTeam(teamId: teamId, userId: userId);
+          .leaveTeam(teamId: widget.teamId, userId: userId);
       ref.invalidate(myTeamsProvider);
       if (context.mounted) context.pop();
     } on OnzeException catch (e) {
@@ -290,6 +365,16 @@ class TeamDetailScreen extends ConsumerWidget {
     } catch (e, st) {
       log.e('Error al abandonar equipo', error: e, stackTrace: st);
     }
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(text, style: Theme.of(context).textTheme.labelSmall);
   }
 }
 

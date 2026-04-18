@@ -4,22 +4,46 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:google_fonts/google_fonts.dart';
+
 import '../../../../core/routing/app_router.dart';
 import '../../../../core/theme/onze_colors.dart';
 import '../../../../features/auth/presentation/providers/auth_providers.dart';
+import '../../../../shared/widgets/onze_avatar.dart';
+import '../../domain/models/match.dart';
 import '../../domain/models/match_request.dart';
 import '../providers/matches_providers.dart';
+import 'report_result_screen.dart';
 
-class MatchRequestsScreen extends ConsumerWidget {
+class MatchRequestsScreen extends ConsumerStatefulWidget {
   const MatchRequestsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MatchRequestsScreen> createState() =>
+      _MatchRequestsScreenState();
+}
+
+class _MatchRequestsScreenState extends ConsumerState<MatchRequestsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(myMatchesProvider);
+      ref.invalidate(pendingMyReportProvider);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final isOwner =
         ref.watch(currentUserProvider).valueOrNull?.isOwner ?? false;
+    final pendingCount =
+        ref.watch(pendingMyReportProvider).valueOrNull?.length ?? 0;
+
+    final tabCount = isOwner ? 4 : 3;
 
     return DefaultTabController(
-      length: isOwner ? 3 : 2,
+      length: tabCount,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Desafíos'),
@@ -27,9 +51,36 @@ class MatchRequestsScreen extends ConsumerWidget {
             indicatorColor: OnzeColors.highlight,
             labelColor: OnzeColors.textPrimary,
             unselectedLabelColor: OnzeColors.textSecondary,
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
             tabs: [
               const Tab(text: 'Recibidos'),
               const Tab(text: 'Enviados'),
+              Tab(
+                child: Row(
+                  children: [
+                    const Text('Partidos'),
+                    if (pendingCount > 0) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: OnzeColors.error,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '$pendingCount',
+                          style: const TextStyle(
+                              fontSize: 10,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
               if (isOwner) const Tab(text: 'Mi cancha'),
             ],
           ),
@@ -38,6 +89,7 @@ class MatchRequestsScreen extends ConsumerWidget {
           children: [
             _ReceivedTab(),
             _SentTab(),
+            _MatchesTab(),
             if (isOwner) _OwnerTab(),
           ],
         ),
@@ -93,22 +145,486 @@ class _SentTab extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
+// Tab: Partidos (resultados)
+// ---------------------------------------------------------------------------
+
+class _MatchesTab extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final matchesAsync = ref.watch(myMatchesProvider);
+    final captainTeamIds = ref
+        .watch(myCaptainTeamIdsProvider)
+        .valueOrNull
+        ?.toSet() ??
+        const <String>{};
+
+    return matchesAsync.when(
+      loading: () => const Center(
+          child: CircularProgressIndicator(color: OnzeColors.accent)),
+      error: (e, _) => _ErrorView(message: e.toString()),
+      data: (matches) {
+        if (matches.isEmpty) {
+          return const _EmptyView(
+              message: 'Tus partidos confirmados aparecerán aquí.');
+        }
+        return RefreshIndicator(
+          color: OnzeColors.accent,
+          onRefresh: () async {
+            ref.invalidate(myMatchesProvider);
+            await ref.read(myMatchesProvider.future);
+          },
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+            itemCount: matches.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 8),
+            itemBuilder: (context, index) => _MatchCard(
+              match: matches[index],
+              captainTeamIds: captainTeamIds,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _MatchCard extends StatelessWidget {
+  const _MatchCard({required this.match, required this.captainTeamIds});
+
+  final Match match;
+  final Set<String> captainTeamIds;
+
+  bool get _myReportPending {
+    if (match.status != MatchStatus.awaitingReport) return false;
+    if (captainTeamIds.contains(match.teamAId)) return match.teamAReport == null;
+    if (captainTeamIds.contains(match.teamBId)) return match.teamBReport == null;
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: OnzeColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: _myReportPending
+              ? OnzeColors.error.withValues(alpha: 0.5)
+              : OnzeColors.border,
+          width: _myReportPending ? 1.5 : 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          // Header con equipos
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            child: Row(
+              children: [
+                _MiniTeam(
+                    name: match.teamAName, shieldUrl: match.teamAShieldUrl),
+                Expanded(
+                  child: Column(
+                    children: [
+                      Text(
+                        'VS',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                          color: OnzeColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      _MatchStatusChip(status: match.status),
+                    ],
+                  ),
+                ),
+                _MiniTeam(
+                    name: match.teamBName, shieldUrl: match.teamBShieldUrl),
+              ],
+            ),
+          ),
+          // Info partido
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: OnzeColors.border)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.calendar_today_outlined,
+                        size: 13, color: OnzeColors.textSecondary),
+                    const SizedBox(width: 4),
+                    Text(match.dateLabel,
+                        style: Theme.of(context).textTheme.bodySmall),
+                    const SizedBox(width: 12),
+                    const Icon(Icons.access_time_outlined,
+                        size: 13, color: OnzeColors.textSecondary),
+                    const SizedBox(width: 4),
+                    Text(match.timeRange,
+                        style: Theme.of(context).textTheme.bodySmall),
+                    const Spacer(),
+                    if (_myReportPending && !match.isReportWindowExpired)
+                      TextButton(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => ReportResultScreen(match: match),
+                          ),
+                        ),
+                        style: TextButton.styleFrom(
+                          foregroundColor: OnzeColors.error,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 4),
+                        ),
+                        child: const Text('Reportar',
+                            style: TextStyle(fontWeight: FontWeight.w700)),
+                      ),
+                    if (match.status == MatchStatus.resolved &&
+                        match.finalResult != null)
+                      _FinalResultChip(result: match.finalResult!),
+                  ],
+                ),
+                // Deadline row — solo visible cuando hay reporte pendiente
+                if (_myReportPending) ...[
+                  const SizedBox(height: 6),
+                  _DeadlineRow(match: match),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DeadlineRow extends StatelessWidget {
+  const _DeadlineRow({required this.match});
+  final Match match;
+
+  @override
+  Widget build(BuildContext context) {
+    final expired = match.isReportWindowExpired;
+    final color = expired ? OnzeColors.textSecondary : OnzeColors.warning;
+    final icon = expired ? Icons.timer_off_outlined : Icons.timer_outlined;
+
+    return Row(
+      children: [
+        Icon(icon, size: 12, color: color),
+        const SizedBox(width: 4),
+        Text(
+          expired
+              ? 'Plazo vencido — pendiente de procesamiento'
+              : '${match.deadlineLabel} (${match.countdownLabel})',
+          style: TextStyle(fontSize: 11, color: color),
+        ),
+      ],
+    );
+  }
+}
+
+class _MiniTeam extends StatelessWidget {
+  const _MiniTeam({required this.name, this.shieldUrl});
+  final String name;
+  final String? shieldUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 80,
+      child: Column(
+        children: [
+          OnzeAvatar(imageUrl: shieldUrl, name: name, radius: 22),
+          const SizedBox(height: 4),
+          Text(
+            name,
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(fontWeight: FontWeight.w600),
+            textAlign: TextAlign.center,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 2,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MatchStatusChip extends StatelessWidget {
+  const _MatchStatusChip({required this.status});
+  final MatchStatus status;
+
+  Color get _color => switch (status) {
+        MatchStatus.scheduled      => OnzeColors.textSecondary,
+        MatchStatus.awaitingReport => OnzeColors.error,
+        MatchStatus.disputed       => OnzeColors.warning,
+        MatchStatus.resolved       => OnzeColors.accent,
+        MatchStatus.cancelled      => OnzeColors.textSecondary,
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: _color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _color.withValues(alpha: 0.4)),
+      ),
+      child: Text(
+        status.label,
+        style: TextStyle(
+            fontSize: 10, color: _color, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}
+
+class _FinalResultChip extends StatelessWidget {
+  const _FinalResultChip({required this.result});
+  final MatchFinalResult result;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: OnzeColors.accent.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        result.label,
+        style: const TextStyle(
+            fontSize: 10,
+            color: OnzeColors.accent,
+            fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Tab: Dueño
 // ---------------------------------------------------------------------------
 
 class _OwnerTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(pendingOwnerRequestsProvider);
-    return async.when(
-      loading: () => const Center(child: CircularProgressIndicator(color: OnzeColors.accent)),
-      error: (e, _) => _ErrorView(message: e.toString()),
-      data: (requests) {
-        if (requests.isEmpty) {
-          return const _EmptyView(message: 'No hay reservas pendientes de confirmación.');
-        }
-        return _RequestList(requests: requests, role: _Role.owner);
+    final pendingAsync = ref.watch(pendingOwnerRequestsProvider);
+    final disputedAsync = ref.watch(disputedMatchesForOwnerProvider);
+
+    return RefreshIndicator(
+      color: OnzeColors.accent,
+      onRefresh: () async {
+        ref.invalidate(pendingOwnerRequestsProvider);
+        ref.invalidate(disputedMatchesForOwnerProvider);
       },
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+        children: [
+          // Reservas pendientes de confirmación
+          Text('Reservas pendientes',
+              style: Theme.of(context).textTheme.headlineMedium),
+          const SizedBox(height: 12),
+          pendingAsync.when(
+            loading: () => const Center(
+                child: CircularProgressIndicator(color: OnzeColors.accent)),
+            error: (e, _) => _ErrorView(message: e.toString()),
+            data: (requests) => requests.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Text('Sin reservas pendientes.',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(color: OnzeColors.textSecondary)),
+                  )
+                : Column(
+                    children: requests
+                        .map((r) => Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: _MatchRequestCard(
+                                  request: r, role: _Role.owner),
+                            ))
+                        .toList(),
+                  ),
+          ),
+          const SizedBox(height: 8),
+          // Disputas
+          Text('Disputas',
+              style: Theme.of(context).textTheme.headlineMedium),
+          const SizedBox(height: 12),
+          disputedAsync.when(
+            loading: () => const Center(
+                child: CircularProgressIndicator(color: OnzeColors.accent)),
+            error: (e, _) => _ErrorView(message: e.toString()),
+            data: (matches) => matches.isEmpty
+                ? Text('Sin disputas pendientes.',
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodyMedium
+                        ?.copyWith(color: OnzeColors.textSecondary))
+                : Column(
+                    children: matches
+                        .map((m) => Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: _DisputeCard(match: m),
+                            ))
+                        .toList(),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DisputeCard extends ConsumerWidget {
+  const _DisputeCard({required this.match});
+  final Match match;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(resolveDisputeProvider(match.id));
+
+    ref.listen(resolveDisputeProvider(match.id), (_, next) {
+      if (next.resolved) {
+        ref.invalidate(disputedMatchesForOwnerProvider);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Disputa resuelta correctamente.'),
+              backgroundColor: OnzeColors.accent),
+        );
+      }
+    });
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: OnzeColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+            color: OnzeColors.warning.withValues(alpha: 0.5), width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.warning_amber_outlined,
+                  color: OnzeColors.warning, size: 16),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  '${match.teamAName} vs ${match.teamBName}',
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${match.dateLabel} · ${match.fieldName}',
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: OnzeColors.textSecondary),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Reportes: ${match.teamAName} → ${match.teamAReport?.label ?? "—"}  |  '
+            '${match.teamBName} → ${match.teamBReport?.label ?? "—"}',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          if (state.hasError) ...[
+            const SizedBox(height: 8),
+            Text(state.errorMessage!,
+                style: const TextStyle(
+                    color: OnzeColors.error, fontSize: 12)),
+          ],
+          const SizedBox(height: 12),
+          if (state.isLoading)
+            const Center(
+                child: CircularProgressIndicator(
+                    color: OnzeColors.accent, strokeWidth: 2))
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: _ResolveBtn(
+                    label: match.teamAName,
+                    onTap: () => ref
+                        .read(resolveDisputeProvider(match.id).notifier)
+                        .resolve(
+                            matchId: match.id,
+                            resolution: OwnerResolution.teamAWin),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _ResolveBtn(
+                    label: 'Empate',
+                    onTap: () => ref
+                        .read(resolveDisputeProvider(match.id).notifier)
+                        .resolve(
+                            matchId: match.id,
+                            resolution: OwnerResolution.draw),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _ResolveBtn(
+                    label: match.teamBName,
+                    onTap: () => ref
+                        .read(resolveDisputeProvider(match.id).notifier)
+                        .resolve(
+                            matchId: match.id,
+                            resolution: OwnerResolution.teamBWin),
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResolveBtn extends StatelessWidget {
+  const _ResolveBtn({required this.label, required this.onTap});
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: OnzeColors.accent.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: OnzeColors.accent.withValues(alpha: 0.4)),
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+              fontSize: 11,
+              color: OnzeColors.accent,
+              fontWeight: FontWeight.w700),
+        ),
+      ),
     );
   }
 }

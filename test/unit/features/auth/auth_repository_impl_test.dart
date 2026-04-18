@@ -124,6 +124,7 @@ void main() {
       when(
         () => repo.createPlayerProfile(
           fullName: any(named: 'fullName'),
+          username: any(named: 'username'),
           position: any(named: 'position'),
           dominantFoot: any(named: 'dominantFoot'),
           experienceLevel: any(named: 'experienceLevel'),
@@ -133,6 +134,7 @@ void main() {
       await expectLater(
         repo.createPlayerProfile(
           fullName: 'Carlos Pérez',
+          username: 'carlos_10',
           position: PlayerPosition.delantero,
           dominantFoot: DominantFoot.derecho,
           experienceLevel: ExperienceLevel.intermedio,
@@ -145,6 +147,7 @@ void main() {
       when(
         () => repo.createPlayerProfile(
           fullName: any(named: 'fullName'),
+          username: any(named: 'username'),
           position: any(named: 'position'),
           dominantFoot: any(named: 'dominantFoot'),
           experienceLevel: any(named: 'experienceLevel'),
@@ -154,6 +157,7 @@ void main() {
       await expectLater(
         () => repo.createPlayerProfile(
           fullName: 'Carlos Pérez',
+          username: 'carlos_10',
           position: PlayerPosition.delantero,
           dominantFoot: DominantFoot.derecho,
           experienceLevel: ExperienceLevel.intermedio,
@@ -166,6 +170,7 @@ void main() {
       when(
         () => repo.createPlayerProfile(
           fullName: any(named: 'fullName'),
+          username: any(named: 'username'),
           position: any(named: 'position'),
           dominantFoot: any(named: 'dominantFoot'),
           experienceLevel: any(named: 'experienceLevel'),
@@ -177,6 +182,7 @@ void main() {
       await expectLater(
         () => repo.createPlayerProfile(
           fullName: 'Carlos Pérez',
+          username: 'carlos_10',
           position: PlayerPosition.portero,
           dominantFoot: DominantFoot.izquierdo,
           experienceLevel: ExperienceLevel.avanzado,

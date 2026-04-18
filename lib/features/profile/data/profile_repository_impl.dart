@@ -52,17 +52,18 @@ class ProfileRepositoryImpl implements ProfileRepository {
   Future<void> updateProfile({
     required String userId,
     String? fullName,
+    String? username,
     String? bio,
     PlayerPosition? position,
     DominantFoot? dominantFoot,
     ExperienceLevel? experienceLevel,
   }) async {
     try {
-      if (fullName != null) {
-        await supabase
-            .from('users')
-            .update({'full_name': fullName.trim()})
-            .eq('id', userId);
+      final userUpdates = <String, dynamic>{};
+      if (fullName != null) userUpdates['full_name'] = fullName.trim();
+      if (username != null) userUpdates['username'] = username.trim().toLowerCase();
+      if (userUpdates.isNotEmpty) {
+        await supabase.from('users').update(userUpdates).eq('id', userId);
       }
 
       final profileUpdates = <String, dynamic>{'user_id': userId};

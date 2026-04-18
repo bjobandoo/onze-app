@@ -14,6 +14,7 @@ import '../../../../features/teams/presentation/providers/teams_providers.dart';
 import '../../../../shared/services/push_trigger.dart';
 import '../../data/matches_repository_impl.dart';
 import '../../domain/matches_repository.dart';
+import '../../domain/models/match.dart';
 import '../../domain/models/match_request.dart';
 
 final matchesRepositoryProvider = Provider<MatchesRepository>(
@@ -37,7 +38,7 @@ final myCaptainTeamsProvider = FutureProvider<List<Team>>((ref) async {
 // ---------------------------------------------------------------------------
 
 /// IDs de los equipos donde soy capitán (para queries de match_requests).
-final _myCaptainTeamIdsProvider = FutureProvider<List<String>>((ref) async {
+final myCaptainTeamIdsProvider = FutureProvider<List<String>>((ref) async {
   final teams = await ref.watch(myCaptainTeamsProvider.future);
   return teams.map((t) => t.id).toList();
 });
@@ -45,7 +46,7 @@ final _myCaptainTeamIdsProvider = FutureProvider<List<String>>((ref) async {
 /// Desafíos enviados (como challenger).
 final challengesSentProvider =
     FutureProvider<List<MatchRequest>>((ref) async {
-  final ids = await ref.watch(_myCaptainTeamIdsProvider.future);
+  final ids = await ref.watch(myCaptainTeamIdsProvider.future);
   if (ids.isEmpty) return [];
   return ref.read(matchesRepositoryProvider).getChallengesAsChallenger(ids);
 });
@@ -53,7 +54,7 @@ final challengesSentProvider =
 /// Desafíos recibidos (como challenged) en estado pending_opponent.
 final challengesReceivedProvider =
     FutureProvider<List<MatchRequest>>((ref) async {
-  final ids = await ref.watch(_myCaptainTeamIdsProvider.future);
+  final ids = await ref.watch(myCaptainTeamIdsProvider.future);
   if (ids.isEmpty) return [];
   return ref.read(matchesRepositoryProvider).getChallengesAsChallenged(ids);
 });
@@ -317,4 +318,163 @@ class SendChallengeNotifier
 final sendChallengeProvider =
     StateNotifierProvider.autoDispose<SendChallengeNotifier, SendChallengeState>(
   (ref) => SendChallengeNotifier(ref.read(matchesRepositoryProvider)),
+);
+
+// ---------------------------------------------------------------------------
+// Partidos oficiales (matches)
+// ---------------------------------------------------------------------------
+
+/// Todos los partidos de los equipos donde el usuario es capitán.
+final myMatchesProvider = FutureProvider<List<Match>>((ref) async {
+  final teamIds = await ref.watch(myCaptainTeamIdsProvider.future);
+  if (teamIds.isEmpty) return [];
+  final repo = ref.read(matchesRepositoryProvider);
+  await repo.markMatchesAwaitingReport();
+  return repo.getMyMatches(teamIds);
+});
+
+/// Partidos donde el usuario (capitán) aún no ha reportado su resultado.
+final pendingMyReportProvider = FutureProvider<List<Match>>((ref) async {
+  final teamIds = await ref.watch(myCaptainTeamIdsProvider.future);
+  if (teamIds.isEmpty) return [];
+  final matches = await ref.watch(myMatchesProvider.future);
+  final teamIdSet = teamIds.toSet();
+
+  return matches.where((m) {
+    if (m.status != MatchStatus.awaitingReport) return false;
+    if (teamIdSet.contains(m.teamAId)) return m.teamAReport == null;
+    if (teamIdSet.contains(m.teamBId)) return m.teamBReport == null;
+    return false;
+  }).toList();
+});
+
+/// Partidos en disputa en las canchas del dueño.
+final disputedMatchesForOwnerProvider =
+    FutureProvider<List<Match>>((ref) async {
+  final user = await ref.watch(currentUserProvider.future);
+  if (user == null || !user.isOwner) return [];
+  return ref
+      .read(matchesRepositoryProvider)
+      .getDisputedMatchesForOwner(user.id);
+});
+
+// ---------------------------------------------------------------------------
+// Reporte de resultado
+// ---------------------------------------------------------------------------
+
+class ReportMatchState {
+  const ReportMatchState({
+    this.isLoading = false,
+    this.errorMessage,
+    this.resultStatus,
+  });
+  final bool isLoading;
+  final String? errorMessage;
+
+  /// Nuevo estado del partido tras reportar: 'awaiting_report'|'resolved'|'disputed'
+  final String? resultStatus;
+
+  bool get hasError => errorMessage != null;
+  bool get isDone => resultStatus != null;
+
+  ReportMatchState copyWith({
+    bool? isLoading,
+    String? errorMessage,
+    String? resultStatus,
+  }) =>
+      ReportMatchState(
+        isLoading: isLoading ?? this.isLoading,
+        errorMessage: errorMessage,
+        resultStatus: resultStatus ?? this.resultStatus,
+      );
+}
+
+class ReportMatchNotifier extends StateNotifier<ReportMatchState> {
+  ReportMatchNotifier(this._repo) : super(const ReportMatchState());
+
+  final MatchesRepository _repo;
+
+  Future<void> report({
+    required String matchId,
+    required MatchReport report,
+  }) async {
+    state = state.copyWith(isLoading: true);
+    try {
+      final newStatus = await _repo.reportMatchResult(
+        matchId: matchId,
+        report: report,
+      );
+      state = ReportMatchState(resultStatus: newStatus);
+      // Notificar al dueño si hay disputa
+      if (newStatus == 'disputed') {
+        unawaited(
+            triggerPushNotification(PushEvent.matchDisputed, matchId));
+      }
+    } on OnzeException catch (e) {
+      state = ReportMatchState(errorMessage: e.message);
+    } catch (e, st) {
+      log.e('Error inesperado al reportar resultado', error: e, stackTrace: st);
+      state = const ReportMatchState(
+        errorMessage: 'Error inesperado. Intenta nuevamente.',
+      );
+    }
+  }
+}
+
+final reportMatchProvider = StateNotifierProvider.autoDispose
+    .family<ReportMatchNotifier, ReportMatchState, String>(
+  (ref, matchId) => ReportMatchNotifier(ref.read(matchesRepositoryProvider)),
+);
+
+// ---------------------------------------------------------------------------
+// Resolución de disputas (dueño)
+// ---------------------------------------------------------------------------
+
+class ResolveDisputeState {
+  const ResolveDisputeState({
+    this.isLoading = false,
+    this.errorMessage,
+    this.resolved = false,
+  });
+  final bool isLoading;
+  final String? errorMessage;
+  final bool resolved;
+
+  bool get hasError => errorMessage != null;
+}
+
+class ResolveDisputeNotifier extends StateNotifier<ResolveDisputeState> {
+  ResolveDisputeNotifier(this._repo) : super(const ResolveDisputeState());
+
+  final MatchesRepository _repo;
+
+  Future<void> resolve({
+    required String matchId,
+    required OwnerResolution resolution,
+  }) async {
+    state = const ResolveDisputeState(isLoading: true);
+    try {
+      await _repo.resolveMatchDispute(
+        matchId: matchId,
+        resolution: resolution,
+      );
+      state = const ResolveDisputeState(resolved: true);
+      // Notificar a ambos capitanes
+      unawaited(
+          triggerPushNotification(PushEvent.matchDisputeResolved, matchId));
+    } on OnzeException catch (e) {
+      state = ResolveDisputeState(errorMessage: e.message);
+    } catch (e, st) {
+      log.e('Error inesperado al resolver disputa', error: e, stackTrace: st);
+      state = const ResolveDisputeState(
+        errorMessage: 'Error inesperado. Intenta nuevamente.',
+      );
+    }
+  }
+}
+
+final resolveDisputeProvider = StateNotifierProvider.autoDispose
+    .family<ResolveDisputeNotifier, ResolveDisputeState, String>(
+  (ref, matchId) =>
+      ResolveDisputeNotifier(ref.read(matchesRepositoryProvider)),
 );

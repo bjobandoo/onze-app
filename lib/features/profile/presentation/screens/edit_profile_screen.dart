@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/errors/onze_exception.dart';
 import '../../../../core/theme/onze_colors.dart';
+import '../../../../features/auth/data/auth_repository_impl.dart';
 import '../../../../features/auth/presentation/providers/auth_providers.dart';
 import '../../../../shared/models/app_user.dart';
 import '../../../../shared/models/player_enums.dart';
@@ -33,6 +34,7 @@ class EditProfileScreen extends ConsumerStatefulWidget {
 
 class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   late final TextEditingController _nameController;
+  late final TextEditingController _usernameController;
   late final TextEditingController _bioController;
   late PlayerPosition _position;
   late DominantFoot _dominantFoot;
@@ -40,6 +42,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
   bool _isLoading = false;
   String? _nameError;
+  String? _usernameError;
   String? _globalError;
 
   // Límite de bio
@@ -52,6 +55,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     final profile = widget.args.profile;
 
     _nameController = TextEditingController(text: user.fullName);
+    _usernameController = TextEditingController(text: user.username ?? '');
     _bioController = TextEditingController(text: profile?.bio ?? '');
     _position = profile?.position ?? PlayerPosition.mediocampista;
     _dominantFoot = profile?.dominantFoot ?? DominantFoot.derecho;
@@ -61,6 +65,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _usernameController.dispose();
     _bioController.dispose();
     super.dispose();
   }
@@ -84,12 +89,11 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     final user = widget.args.user;
     final profile = widget.args.profile;
     return _nameController.text.trim() != user.fullName ||
+        _usernameController.text.trim().toLowerCase() != (user.username ?? '') ||
         _bioController.text.trim() != (profile?.bio ?? '') ||
         _position != (profile?.position ?? PlayerPosition.mediocampista) ||
-        _dominantFoot !=
-            (profile?.dominantFoot ?? DominantFoot.derecho) ||
-        _experience !=
-            (profile?.experienceLevel ?? ExperienceLevel.intermedio);
+        _dominantFoot != (profile?.dominantFoot ?? DominantFoot.derecho) ||
+        _experience != (profile?.experienceLevel ?? ExperienceLevel.intermedio);
   }
 
   // ---------------------------------------------------------------------------
@@ -98,22 +102,50 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
   Future<void> _save() async {
     final nameError = _validateName(_nameController.text);
-    if (nameError != null) {
-      setState(() => _nameError = nameError);
+    final newUsername = _usernameController.text.trim().toLowerCase();
+    String? usernameErr;
+
+    if (newUsername.isNotEmpty &&
+        !RegExp(r'^[a-z0-9_]{3,20}$').hasMatch(newUsername)) {
+      usernameErr = 'Solo letras minúsculas, números y _ (3–20 caracteres)';
+    }
+
+    if (nameError != null || usernameErr != null) {
+      setState(() {
+        _nameError = nameError;
+        _usernameError = usernameErr;
+      });
       return;
     }
 
     setState(() {
       _nameError = null;
+      _usernameError = null;
       _globalError = null;
       _isLoading = true;
     });
 
     try {
+      // Comprobar disponibilidad solo si el username cambió
+      final currentUsername = widget.args.user.username ?? '';
+      if (newUsername.isNotEmpty && newUsername != currentUsername) {
+        final available =
+            await AuthRepositoryImpl().isUsernameAvailable(newUsername);
+        if (!available) {
+          setState(() {
+            _usernameError =
+                'Ese nombre de usuario ya está en uso. Elige otro.';
+            _isLoading = false;
+          });
+          return;
+        }
+      }
+
       final userId = widget.args.user.id;
       await ref.read(profileRepositoryProvider).updateProfile(
             userId: userId,
             fullName: _nameController.text.trim(),
+            username: newUsername.isNotEmpty ? newUsername : null,
             bio: _bioController.text.trim(),
             position: _position,
             dominantFoot: _dominantFoot,
@@ -179,6 +211,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           children: [
             const SizedBox(height: 24),
             _buildNameField(),
+            const SizedBox(height: 16),
+            _buildUsernameField(),
             const SizedBox(height: 32),
             _buildBioField(),
             const SizedBox(height: 32),
@@ -224,6 +258,28 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       textInputAction: TextInputAction.next,
       onChanged: (_) {
         if (_nameError != null) setState(() => _nameError = null);
+        setState(() {}); // actualiza _hasChanges
+      },
+    );
+  }
+
+  Widget _buildUsernameField() {
+    return OnzeTextField(
+      label: 'Nombre de usuario',
+      controller: _usernameController,
+      hint: 'Ej: carlos_10',
+      errorText: _usernameError,
+      keyboardType: TextInputType.text,
+      textInputAction: TextInputAction.next,
+      onChanged: (v) {
+        final lower = v.toLowerCase();
+        if (v != lower) {
+          _usernameController.value = TextEditingValue(
+            text: lower,
+            selection: TextSelection.collapsed(offset: lower.length),
+          );
+        }
+        if (_usernameError != null) setState(() => _usernameError = null);
         setState(() {}); // actualiza _hasChanges
       },
     );

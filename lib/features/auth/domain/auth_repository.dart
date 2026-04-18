@@ -20,10 +20,14 @@ abstract class AuthRepository {
   /// Crea o actualiza el perfil del jugador recién registrado.
   Future<void> createPlayerProfile({
     required String fullName,
+    required String username,
     required PlayerPosition position,
     required DominantFoot dominantFoot,
     required ExperienceLevel experienceLevel,
   });
+
+  /// Verifica que el [username] no esté en uso por otro usuario.
+  Future<bool> isUsernameAvailable(String username);
 
   /// Cierra la sesión activa.
   Future<void> signOut();

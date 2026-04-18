@@ -9,6 +9,7 @@ import '../../../shared/services/supabase_service.dart';
 import '../../fields/domain/models/field_schedule.dart';
 import '../../teams/domain/models/team.dart';
 import '../domain/matches_repository.dart';
+import '../domain/models/match.dart';
 import '../domain/models/match_request.dart';
 
 /// Selector de columnas para match_requests con equipos y campo desnormalizados.
@@ -255,6 +256,116 @@ class MatchesRepositoryImpl implements MatchesRepository {
     } on sb.PostgrestException catch (e) {
       log.e('Error al buscar equipos', error: e);
       throw DatabaseException('No se pudieron buscar equipos.', code: e.code);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Matches (partidos oficiales)
+  // ---------------------------------------------------------------------------
+
+  static const _matchSelect = '''
+    *,
+    team_a:teams!team_a_id(id, name, shield_url),
+    team_b:teams!team_b_id(id, name, shield_url),
+    field:fields!field_id(id, name, address)
+  ''';
+
+  @override
+  Future<void> markMatchesAwaitingReport() async {
+    try {
+      await supabase.rpc('mark_matches_awaiting_report');
+    } catch (e) {
+      log.w('mark_matches_awaiting_report falló (no crítico): $e');
+    }
+  }
+
+  @override
+  Future<List<Match>> getMyMatches(List<String> teamIds) async {
+    if (teamIds.isEmpty) return [];
+    try {
+      final idList = teamIds.join(',');
+      final rows = await supabase
+          .from('matches')
+          .select(_matchSelect)
+          .or('team_a_id.in.($idList),team_b_id.in.($idList)')
+          .order('match_date', ascending: false)
+          .order('start_time', ascending: false);
+
+      return rows.map(Match.fromMap).toList();
+    } on sb.PostgrestException catch (e) {
+      log.e('Error al obtener partidos', error: e);
+      throw DatabaseException('No se pudieron cargar los partidos.', code: e.code);
+    }
+  }
+
+  @override
+  Future<List<Match>> getDisputedMatchesForOwner(String ownerId) async {
+    try {
+      // Obtener IDs de canchas del dueño
+      final fieldRows = await supabase
+          .from('fields')
+          .select('id')
+          .eq('owner_id', ownerId);
+      final fieldIds = (fieldRows as List<dynamic>)
+          .map((r) => (r as Map<String, dynamic>)['id'] as String)
+          .toList();
+      if (fieldIds.isEmpty) return [];
+
+      final idList = fieldIds.join(',');
+      final rows = await supabase
+          .from('matches')
+          .select(_matchSelect)
+          .eq('status', 'disputed')
+          .filter('field_id', 'in', '($idList)')
+          .order('match_date', ascending: false);
+
+      return rows.map(Match.fromMap).toList();
+    } on sb.PostgrestException catch (e) {
+      log.e('Error al obtener partidos en disputa', error: e);
+      throw DatabaseException('No se pudieron cargar los partidos.', code: e.code);
+    }
+  }
+
+  @override
+  Future<String> reportMatchResult({
+    required String matchId,
+    required MatchReport report,
+  }) async {
+    try {
+      final result = await supabase.rpc(
+        'report_match_result',
+        params: {'p_match_id': matchId, 'p_report': report.dbValue},
+      );
+      log.i('Resultado reportado: match=$matchId report=${report.dbValue} → $result');
+      return result as String;
+    } on sb.PostgrestException catch (e) {
+      log.e('Error al reportar resultado', error: e);
+      throw DatabaseException(
+        e.message.contains('Ya reportaste')
+            ? 'Ya reportaste el resultado de este partido.'
+            : 'No se pudo reportar el resultado.',
+        code: e.code,
+      );
+    }
+  }
+
+  @override
+  Future<void> resolveMatchDispute({
+    required String matchId,
+    required OwnerResolution resolution,
+  }) async {
+    try {
+      await supabase.rpc(
+        'resolve_match_dispute',
+        params: {
+          'p_match_id': matchId,
+          'p_resolution': resolution.dbValue,
+        },
+      );
+      log.i('Disputa resuelta: match=$matchId resolution=${resolution.dbValue}');
+    } on sb.PostgrestException catch (e) {
+      log.e('Error al resolver disputa', error: e);
+      throw DatabaseException('No se pudo resolver la disputa.', code: e.code);
     }
   }
 

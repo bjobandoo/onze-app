@@ -22,43 +22,75 @@ class CreateProfileScreen extends ConsumerStatefulWidget {
 
 class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
   final _nameController = TextEditingController();
+  final _usernameController = TextEditingController();
   PlayerPosition _position = PlayerPosition.mediocampista;
   DominantFoot _dominantFoot = DominantFoot.derecho;
   ExperienceLevel _experience = ExperienceLevel.intermedio;
 
   bool _isLoading = false;
   String? _nameError;
+  String? _usernameError;
   String? _globalError;
 
   @override
   void dispose() {
     _nameController.dispose();
+    _usernameController.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
     final name = _nameController.text.trim();
+    final username = _usernameController.text.trim().toLowerCase();
+
+    String? nameErr;
+    String? usernameErr;
+
     if (name.isEmpty) {
-      setState(() => _nameError = 'Ingresa tu nombre');
+      nameErr = 'Ingresa tu nombre';
+    } else if (name.length < 3) {
+      nameErr = 'El nombre debe tener al menos 3 caracteres';
+    }
+
+    if (username.isEmpty) {
+      usernameErr = 'Elige un nombre de usuario';
+    } else if (!RegExp(r'^[a-z0-9_]{3,20}$').hasMatch(username)) {
+      usernameErr = 'Solo letras minúsculas, números y _ (3–20 caracteres)';
+    }
+
+    if (nameErr != null || usernameErr != null) {
+      setState(() {
+        _nameError = nameErr;
+        _usernameError = usernameErr;
+      });
       return;
     }
-    if (name.length < 3) {
-      setState(() => _nameError = 'El nombre debe tener al menos 3 caracteres');
-      return;
-    }
+
     setState(() {
       _nameError = null;
+      _usernameError = null;
       _globalError = null;
       _isLoading = true;
     });
 
     try {
-      await ref.read(authRepositoryProvider).createPlayerProfile(
-            fullName: name,
-            position: _position,
-            dominantFoot: _dominantFoot,
-            experienceLevel: _experience,
-          );
+      final repo = ref.read(authRepositoryProvider);
+      final available = await repo.isUsernameAvailable(username);
+      if (!available) {
+        setState(() {
+          _usernameError = 'Ese nombre de usuario ya está en uso. Elige otro.';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      await repo.createPlayerProfile(
+        fullName: name,
+        username: username,
+        position: _position,
+        dominantFoot: _dominantFoot,
+        experienceLevel: _experience,
+      );
       if (mounted) context.go(AppRoutes.home);
     } on OnzeException catch (e) {
       setState(() => _globalError = e.message);
@@ -88,6 +120,28 @@ class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
                 textInputAction: TextInputAction.next,
                 onChanged: (_) {
                   if (_nameError != null) setState(() => _nameError = null);
+                },
+              ),
+              const SizedBox(height: 16),
+              OnzeTextField(
+                label: 'Nombre de usuario',
+                controller: _usernameController,
+                hint: 'Ej: carlos_10',
+                errorText: _usernameError,
+                keyboardType: TextInputType.text,
+                textInputAction: TextInputAction.next,
+                onChanged: (v) {
+                  if (_usernameError != null) {
+                    setState(() => _usernameError = null);
+                  }
+                  // Forzar lowercase en tiempo real
+                  final lower = v.toLowerCase();
+                  if (v != lower) {
+                    _usernameController.value = TextEditingValue(
+                      text: lower,
+                      selection: TextSelection.collapsed(offset: lower.length),
+                    );
+                  }
                 },
               ),
               const SizedBox(height: 32),

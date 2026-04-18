@@ -67,7 +67,7 @@ class _UserSearchScreenState extends ConsumerState<UserSearchScreen> {
       BuildContext context, WidgetRef ref, UserSearchState state) {
     if (state.isEmpty) {
       return const _HintView(
-        message: 'Escribe el nombre o teléfono del jugador que quieres invitar.',
+        message: 'Busca por @usuario o número de teléfono.',
       );
     }
 
@@ -81,7 +81,7 @@ class _UserSearchScreenState extends ConsumerState<UserSearchScreen> {
 
     if (state.results.isEmpty) {
       return const _HintView(
-          message: 'No se encontraron jugadores con ese nombre o teléfono.');
+          message: 'No se encontraron jugadores con ese usuario o teléfono.');
     }
 
     return ListView.separated(
@@ -97,6 +97,7 @@ class _UserSearchScreenState extends ConsumerState<UserSearchScreen> {
         return _UserResultTile(
           avatarUrl: user.avatarUrl,
           fullName: user.fullName,
+          username: user.username,
           phone: user.phone,
           isMember: isMember,
           isInvited: isInvited,
@@ -132,7 +133,7 @@ class _SearchField extends StatelessWidget {
       onChanged: onChanged,
       style: Theme.of(context).textTheme.bodyLarge,
       decoration: InputDecoration(
-        hintText: 'Buscar jugador…',
+        hintText: '@usuario o teléfono…',
         hintStyle: Theme.of(context)
             .textTheme
             .bodyLarge
@@ -156,6 +157,7 @@ class _UserResultTile extends StatelessWidget {
   const _UserResultTile({
     required this.avatarUrl,
     required this.fullName,
+    required this.username,
     required this.phone,
     required this.isMember,
     required this.isInvited,
@@ -164,15 +166,15 @@ class _UserResultTile extends StatelessWidget {
 
   final String? avatarUrl;
   final String fullName;
+  final String? username;
   final String phone;
   final bool isMember;
   final bool isInvited;
   final VoidCallback? onInvite;
 
-  String get _displayPhone {
-    if (phone.startsWith('+593')) {
-      return '0${phone.substring(4)}';
-    }
+  String get _subtitle {
+    if (username != null && username!.isNotEmpty) return '@$username';
+    if (phone.startsWith('+593')) return '0${phone.substring(4)}';
     return phone;
   }
 
@@ -188,7 +190,7 @@ class _UserResultTile extends StatelessWidget {
             ?.copyWith(fontWeight: FontWeight.w500),
       ),
       subtitle: Text(
-        _displayPhone,
+        _subtitle,
         style: Theme.of(context)
             .textTheme
             .bodySmall

@@ -20,6 +20,7 @@ abstract class ProfileRepository {
   Future<void> updateProfile({
     required String userId,
     String? fullName,
+    String? username,
     String? bio,
     PlayerPosition? position,
     DominantFoot? dominantFoot,

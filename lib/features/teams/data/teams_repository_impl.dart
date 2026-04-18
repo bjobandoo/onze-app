@@ -84,6 +84,21 @@ class TeamsRepositoryImpl implements TeamsRepository {
   }
 
   @override
+  Future<bool> isTeamNameAvailable(String name) async {
+    try {
+      final rows = await supabase
+          .from('teams')
+          .select('id')
+          .ilike('name', name.trim())
+          .limit(1);
+      return (rows as List).isEmpty;
+    } on sb.PostgrestException catch (e) {
+      log.w('Error al verificar nombre de equipo: $e');
+      return true; // si falla la consulta, dejar pasar y que la BD lo rechace
+    }
+  }
+
+  @override
   Future<Team> createTeam({
     required String captainId,
     required String name,
@@ -166,12 +181,15 @@ class TeamsRepositoryImpl implements TeamsRepository {
     required String invitedUserId,
   }) async {
     try {
-      await supabase.from('team_join_requests').insert({
-        'team_id': teamId,
-        'user_id': invitedUserId,
-        'type': 'invitation',
-        'status': 'pending',
-      });
+      await supabase.from('team_join_requests').upsert(
+        {
+          'team_id': teamId,
+          'user_id': invitedUserId,
+          'type': 'invitation',
+          'status': 'pending',
+        },
+        onConflict: 'team_id,user_id,type',
+      );
       log.i('Invitación enviada a $invitedUserId para equipo $teamId');
     } on sb.PostgrestException catch (e) {
       log.e('Error al invitar miembro', error: e);
@@ -296,6 +314,14 @@ class TeamsRepositoryImpl implements TeamsRepository {
           .eq('user_id', userId)
           .neq('role', 'captain'); // No permitir borrar al capitán
 
+      // Limpiar la invitación para que una futura re-invitación cree fila nueva
+      await supabase
+          .from('team_join_requests')
+          .delete()
+          .eq('team_id', teamId)
+          .eq('user_id', userId)
+          .eq('type', 'invitation');
+
       log.i('Miembro $userId expulsado del equipo $teamId');
     } on sb.PostgrestException catch (e) {
       log.e('Error al expulsar miembro', error: e);
@@ -316,10 +342,53 @@ class TeamsRepositoryImpl implements TeamsRepository {
           .eq('user_id', userId)
           .neq('role', 'captain'); // El capitán no puede abandonar sin disolver
 
+      // Limpiar la invitación para que una futura re-invitación cree fila nueva
+      await supabase
+          .from('team_join_requests')
+          .delete()
+          .eq('team_id', teamId)
+          .eq('user_id', userId)
+          .eq('type', 'invitation');
+
       log.i('Usuario $userId abandonó el equipo $teamId');
     } on sb.PostgrestException catch (e) {
       log.e('Error al abandonar equipo', error: e);
       throw DatabaseException('No se pudo abandonar el equipo.', code: e.code);
+    }
+  }
+
+  @override
+  Future<void> updateTeam({
+    required String teamId,
+    String? description,
+  }) async {
+    if (description == null) return;
+    try {
+      await supabase
+          .from('teams')
+          .update({'description': description.trim()})
+          .eq('id', teamId);
+      log.i('Equipo $teamId actualizado');
+    } on sb.PostgrestException catch (e) {
+      log.e('Error al actualizar equipo', error: e);
+      throw DatabaseException('No se pudo actualizar el equipo.', code: e.code);
+    }
+  }
+
+  @override
+  Future<Set<String>> getPendingInvitedUserIds(String teamId) async {
+    try {
+      final rows = await supabase
+          .from('team_join_requests')
+          .select('user_id')
+          .eq('team_id', teamId)
+          .eq('type', 'invitation')
+          .eq('status', 'pending');
+
+      return {for (final r in rows) r['user_id'] as String};
+    } on sb.PostgrestException catch (e) {
+      log.e('Error al obtener IDs invitados pendientes', error: e);
+      return {};
     }
   }
 
@@ -330,12 +399,12 @@ class TeamsRepositoryImpl implements TeamsRepository {
   }) async {
     if (query.trim().length < 2) return [];
 
-    final term = query.trim();
+    final term = query.trim().toLowerCase();
     try {
       final rows = await supabase
           .from('users')
-          .select('id, full_name, phone, avatar_url, is_suspended, roles')
-          .or('full_name.ilike.%$term%,phone.ilike.%$term%')
+          .select('id, full_name, username, phone, avatar_url, is_suspended, roles')
+          .or('username.ilike.%$term%,phone.ilike.%$term%')
           .neq('id', excludeUserId)
           .limit(20);
 

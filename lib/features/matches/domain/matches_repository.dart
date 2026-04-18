@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../fields/domain/models/field_schedule.dart';
 import '../../teams/domain/models/team.dart';
+import 'models/match.dart';
 import 'models/match_request.dart';
 
 /// Contrato de acceso a datos para el sistema de reservas.
@@ -55,4 +56,32 @@ abstract class MatchesRepository {
   /// Busca equipos por nombre para seleccionar el equipo rival.
   Future<List<Team>> searchTeams(String query,
       {required String excludeTeamId});
+
+  // ---------------------------------------------------------------------------
+  // Partidos (matches)
+  // ---------------------------------------------------------------------------
+
+  /// Marca como [awaiting_report] los partidos cuya hora ya pasó.
+  /// Llamar al abrir la pantalla de partidos.
+  Future<void> markMatchesAwaitingReport();
+
+  /// Retorna todos los partidos de los equipos [teamIds] (todos los estados).
+  Future<List<Match>> getMyMatches(List<String> teamIds);
+
+  /// Retorna los partidos del dueño [ownerId] en estado [disputed].
+  Future<List<Match>> getDisputedMatchesForOwner(String ownerId);
+
+  /// El capitán reporta el resultado de su equipo.
+  /// [report] es 'win' | 'loss' | 'draw' desde la perspectiva del capitán.
+  /// Retorna el nuevo estado del partido.
+  Future<String> reportMatchResult({
+    required String matchId,
+    required MatchReport report,
+  });
+
+  /// El dueño de la cancha resuelve una disputa.
+  Future<void> resolveMatchDispute({
+    required String matchId,
+    required OwnerResolution resolution,
+  });
 }

@@ -1,6 +1,7 @@
 // Providers de Riverpod para el feature de equipos.
 
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -95,13 +96,35 @@ class CreateTeamNotifier extends StateNotifier<CreateTeamState> {
   final TeamsRepository _repo;
   final String _captainId;
 
-  Future<void> createTeam(String name) async {
+  Future<void> createTeam(
+    String name, {
+    String? description,
+    Uint8List? shieldBytes,
+  }) async {
     state = state.copyWith(isLoading: true);
     try {
+      final available = await _repo.isTeamNameAvailable(name);
+      if (!available) {
+        state = const CreateTeamState(
+          errorMessage: 'Ya existe un equipo con ese nombre. Elige otro.',
+        );
+        return;
+      }
       final team = await _repo.createTeam(
         captainId: _captainId,
         name: name,
       );
+
+      // Subir escudo si el usuario eligió uno
+      if (shieldBytes != null) {
+        await _repo.uploadTeamShield(teamId: team.id, bytes: shieldBytes);
+      }
+
+      // Guardar descripción si se ingresó
+      if (description != null && description.trim().isNotEmpty) {
+        await _repo.updateTeam(teamId: team.id, description: description);
+      }
+
       state = CreateTeamState(createdTeam: team);
       log.i('Equipo creado exitosamente: ${team.id}');
     } on OnzeException catch (e) {
@@ -169,12 +192,21 @@ class UserSearchState {
 /// Notifier que maneja la búsqueda de usuarios y el envío de invitaciones.
 class UserSearchNotifier extends StateNotifier<UserSearchState> {
   UserSearchNotifier(this._repo, this._currentUserId, this._teamId)
-      : super(const UserSearchState());
+      : super(const UserSearchState()) {
+    _loadPendingInvited();
+  }
 
   final TeamsRepository _repo;
   final String _currentUserId;
   final String _teamId;
   Timer? _debounce;
+
+  /// Precarga los IDs que ya tienen invitación pendiente para este equipo.
+  Future<void> _loadPendingInvited() async {
+    final ids = await _repo.getPendingInvitedUserIds(_teamId);
+    if (!mounted) return;
+    state = state.copyWith(invitedIds: ids);
+  }
 
   /// Actualiza la query y dispara la búsqueda con debounce de 350ms.
   void setQuery(String query) {

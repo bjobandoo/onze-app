@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/routing/app_router.dart';
@@ -28,6 +29,16 @@ class OnzeApp extends ConsumerWidget {
       title: 'Onze',
       debugShowCheckedModeBanner: false,
       theme: OnzeTheme.dark,
+      locale: const Locale('es', 'EC'),
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('es', 'EC'),
+        Locale('en', 'US'),
+      ],
       routerConfig: buildAppRouter(container),
     );
   }

@@ -95,8 +95,19 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<bool> isUsernameAvailable(String username) async {
+    final rows = await supabase
+        .from('users')
+        .select('id')
+        .eq('username', username.trim().toLowerCase())
+        .limit(1);
+    return (rows as List).isEmpty;
+  }
+
+  @override
   Future<void> createPlayerProfile({
     required String fullName,
+    required String username,
     required PlayerPosition position,
     required DominantFoot dominantFoot,
     required ExperienceLevel experienceLevel,
@@ -109,11 +120,11 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       log.d('Creando perfil para userId: $userId');
 
-      // 1. Actualizar full_name en public.users
-      await supabase
-          .from('users')
-          .update({'full_name': fullName.trim()})
-          .eq('id', userId);
+      // 1. Actualizar full_name y username en public.users
+      await supabase.from('users').update({
+        'full_name': fullName.trim(),
+        'username': username.trim().toLowerCase(),
+      }).eq('id', userId);
 
       // 2. Insertar o actualizar player_profiles
       await supabase.from('player_profiles').upsert({
@@ -126,6 +137,13 @@ class AuthRepositoryImpl implements AuthRepository {
       log.i('Perfil creado correctamente para $userId');
     } on sb.PostgrestException catch (e) {
       log.e('Error al crear perfil', error: e);
+      // Código 23505 = unique_violation (username duplicado)
+      if (e.code == '23505') {
+        throw const DatabaseException(
+          'Ese nombre de usuario ya está en uso. Elige otro.',
+          code: '23505',
+        );
+      }
       throw DatabaseException(
         'No se pudo guardar el perfil. Intenta nuevamente.',
         code: e.code,

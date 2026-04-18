@@ -94,11 +94,22 @@ async function sendFcm(
   body: string,
   data: Record<string, string> = {},
 ): Promise<void> {
-  if (!FIREBASE_PROJECT_ID) return;
+  if (!FIREBASE_PROJECT_ID) {
+    console.error('[FCM] FIREBASE_PROJECT_ID no configurado');
+    return;
+  }
+  if (!FIREBASE_CLIENT_EMAIL) {
+    console.error('[FCM] FIREBASE_CLIENT_EMAIL no configurado');
+    return;
+  }
+  if (!FIREBASE_PRIVATE_KEY) {
+    console.error('[FCM] FIREBASE_PRIVATE_KEY no configurado');
+    return;
+  }
 
   const accessToken = await getFcmAccessToken();
 
-  await fetch(
+  const res = await fetch(
     `https://fcm.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/messages:send`,
     {
       method: 'POST',
@@ -111,7 +122,10 @@ async function sendFcm(
           token,
           notification: { title, body },
           data,
-          android: { priority: 'high' },
+          android: {
+            priority: 'high',
+            notification: { channel_id: 'onze_default' },
+          },
           apns: {
             payload: { aps: { sound: 'default', badge: 1 } },
             headers: { 'apns-priority': '10' },
@@ -120,6 +134,13 @@ async function sendFcm(
       }),
     },
   );
+
+  if (!res.ok) {
+    const errBody = await res.text();
+    console.error(`[FCM] Error ${res.status} al enviar a token ${token.substring(0, 20)}...: ${errBody}`);
+  } else {
+    console.log(`[FCM] OK — token ${token.substring(0, 20)}... title="${title}"`);
+  }
 }
 
 async function notifyUsers(
@@ -280,6 +301,55 @@ async function handleMatchRejectedOwner(matchRequestId: string) {
   );
 }
 
+async function handleMatchDisputed(matchId: string) {
+  const { data: match } = await supabase
+    .from('matches')
+    .select('field_id, team_a_id, team_b_id, match_date, start_time, team_a:teams!team_a_id(name), team_b:teams!team_b_id(name), field:fields!field_id(name, owner_id)')
+    .eq('id', matchId)
+    .single();
+  if (!match) return;
+
+  const fieldOwnerId = (match.field as { owner_id: string })?.owner_id;
+  if (!fieldOwnerId) return;
+
+  const teamAName = (match.team_a as { name: string })?.name ?? 'Equipo A';
+  const teamBName = (match.team_b as { name: string })?.name ?? 'Equipo B';
+  const fieldName = (match.field as { name: string })?.name ?? 'la cancha';
+
+  await notifyUsers(
+    [fieldOwnerId],
+    '⚠️ Disputa de resultado',
+    `${teamAName} vs ${teamBName} en ${fieldName} — los capitanes no coinciden. Debes resolver.`,
+    { screen: '/matches' },
+  );
+}
+
+async function handleMatchDisputeResolved(matchId: string) {
+  const { data: match } = await supabase
+    .from('matches')
+    .select('team_a_id, team_b_id, final_result, team_a:teams!team_a_id(name, captain_id), team_b:teams!team_b_id(name, captain_id)')
+    .eq('id', matchId)
+    .single();
+  if (!match) return;
+
+  const captainA = (match.team_a as { captain_id: string })?.captain_id;
+  const captainB = (match.team_b as { captain_id: string })?.captain_id;
+  const targets = [captainA, captainB].filter(Boolean) as string[];
+
+  const result = match.final_result === 'team_a_win'
+    ? `Ganó ${(match.team_a as { name: string })?.name}`
+    : match.final_result === 'team_b_win'
+    ? `Ganó ${(match.team_b as { name: string })?.name}`
+    : 'Empate';
+
+  await notifyUsers(
+    targets,
+    '✅ Disputa resuelta',
+    `El dueño de la cancha determinó: ${result}`,
+    { screen: '/matches' },
+  );
+}
+
 async function handleTeamInvitation(teamId: string, targetUserId: string) {
   const { data: team } = await supabase
     .from('teams')
@@ -339,6 +409,12 @@ Deno.serve(async (req: Request) => {
         break;
       case 'team_invitation':
         await handleTeamInvitation(entityId!, extra?.['targetUserId'] ?? '');
+        break;
+      case 'match_disputed':
+        await handleMatchDisputed(entityId!);
+        break;
+      case 'match_dispute_resolved':
+        await handleMatchDisputeResolved(entityId!);
         break;
       default:
         return new Response(

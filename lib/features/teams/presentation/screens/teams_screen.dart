@@ -12,11 +12,24 @@ import '../providers/teams_providers.dart';
 import '../widgets/team_card.dart';
 
 /// Pantalla de mis equipos con acceso a crear equipo e invitaciones.
-class TeamsScreen extends ConsumerWidget {
+class TeamsScreen extends ConsumerStatefulWidget {
   const TeamsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TeamsScreen> createState() => _TeamsScreenState();
+}
+
+class _TeamsScreenState extends ConsumerState<TeamsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(myTeamsProvider);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final teamsAsync = ref.watch(myTeamsProvider);
     final userAsync = ref.watch(currentUserProvider);
     final invitationsAsync = ref.watch(myPendingInvitationsProvider);

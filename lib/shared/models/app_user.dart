@@ -7,6 +7,7 @@ class AppUser {
     required this.fullName,
     required this.roles,
     required this.isSuspended,
+    this.username,
     this.avatarUrl,
     this.suspensionUntil,
     this.yellowCardsCount = 0,
@@ -17,6 +18,7 @@ class AppUser {
       id: map['id'] as String,
       phone: map['phone'] as String? ?? '',
       fullName: map['full_name'] as String? ?? '',
+      username: map['username'] as String?,
       avatarUrl: map['avatar_url'] as String?,
       isSuspended: map['is_suspended'] as bool? ?? false,
       suspensionUntil: map['suspension_until'] != null
@@ -33,6 +35,9 @@ class AppUser {
   final String id;
   final String phone;
   final String fullName;
+
+  /// Alias único del jugador (ej: "carlos_10"). Null si aún no lo eligió.
+  final String? username;
   final String? avatarUrl;
   final bool isSuspended;
   final DateTime? suspensionUntil;
@@ -47,6 +52,7 @@ class AppUser {
 
   AppUser copyWith({
     String? fullName,
+    String? username,
     String? avatarUrl,
     bool? isSuspended,
   }) {
@@ -54,6 +60,7 @@ class AppUser {
       id: id,
       phone: phone,
       fullName: fullName ?? this.fullName,
+      username: username ?? this.username,
       avatarUrl: avatarUrl ?? this.avatarUrl,
       roles: roles,
       isSuspended: isSuspended ?? this.isSuspended,

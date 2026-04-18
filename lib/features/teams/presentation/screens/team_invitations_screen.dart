@@ -10,17 +10,33 @@ import '../providers/teams_providers.dart';
 import '../widgets/join_request_tile.dart';
 
 /// Pantalla con las invitaciones pendientes que el usuario ha recibido.
-class TeamInvitationsScreen extends ConsumerWidget {
+class TeamInvitationsScreen extends ConsumerStatefulWidget {
   const TeamInvitationsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TeamInvitationsScreen> createState() =>
+      _TeamInvitationsScreenState();
+}
+
+class _TeamInvitationsScreenState extends ConsumerState<TeamInvitationsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Siempre refrescar al abrir la pantalla para mostrar invitaciones recientes.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(myPendingInvitationsProvider);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final invitationsAsync = ref.watch(myPendingInvitationsProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Invitaciones')),
       body: invitationsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator(color: OnzeColors.accent)),
+        loading: () =>
+            const Center(child: CircularProgressIndicator(color: OnzeColors.accent)),
         error: (e, _) => Center(
           child: Text(
             e.toString(),
@@ -32,39 +48,56 @@ class TeamInvitationsScreen extends ConsumerWidget {
         ),
         data: (invitations) {
           if (invitations.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+            return RefreshIndicator(
+              color: OnzeColors.accent,
+              onRefresh: () async =>
+                  ref.invalidate(myPendingInvitationsProvider),
+              child: ListView(
                 children: [
-                  const Icon(Icons.mail_outline,
-                      size: 64, color: OnzeColors.textSecondary),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Sin invitaciones pendientes',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: OnzeColors.textSecondary,
-                        ),
+                  SizedBox(
+                    height: MediaQuery.of(context).size.height * 0.5,
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.mail_outline,
+                              size: 64, color: OnzeColors.textSecondary),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Sin invitaciones pendientes',
+                            style:
+                                Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                      color: OnzeColors.textSecondary,
+                                    ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
             );
           }
 
-          return ListView.separated(
-            padding: const EdgeInsets.all(24),
-            itemCount: invitations.length,
-            separatorBuilder: (_, _) =>
-                const Divider(height: 1, color: OnzeColors.border),
-            itemBuilder: (context, index) {
-              final invitation = invitations[index];
-              return JoinRequestTile(
-                request: invitation,
-                onAccept: () =>
-                    _respond(context, ref, invitation.id, accept: true),
-                onReject: () =>
-                    _respond(context, ref, invitation.id, accept: false),
-              );
-            },
+          return RefreshIndicator(
+            color: OnzeColors.accent,
+            onRefresh: () async => ref.invalidate(myPendingInvitationsProvider),
+            child: ListView.separated(
+              padding: const EdgeInsets.all(24),
+              itemCount: invitations.length,
+              separatorBuilder: (_, _) =>
+                  const Divider(height: 1, color: OnzeColors.border),
+              itemBuilder: (context, index) {
+                final invitation = invitations[index];
+                return JoinRequestTile(
+                  request: invitation,
+                  onAccept: () =>
+                      _respond(context, invitation.id, accept: true),
+                  onReject: () =>
+                      _respond(context, invitation.id, accept: false),
+                );
+              },
+            ),
           );
         },
       ),
@@ -73,7 +106,6 @@ class TeamInvitationsScreen extends ConsumerWidget {
 
   Future<void> _respond(
     BuildContext context,
-    WidgetRef ref,
     String requestId, {
     required bool accept,
   }) async {

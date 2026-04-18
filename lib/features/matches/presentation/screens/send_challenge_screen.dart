@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/onze_colors.dart';
+import '../../../../features/auth/presentation/providers/auth_providers.dart';
 import '../../../../features/fields/domain/models/field.dart';
 import '../../../../features/fields/domain/models/field_schedule.dart';
 import '../../../../features/fields/presentation/providers/fields_providers.dart';
@@ -27,14 +28,61 @@ class _SendChallengeScreenState extends ConsumerState<SendChallengeScreen> {
   Team? _opponent;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(verifiedFieldsProvider);
+      ref.invalidate(myCaptainTeamsProvider);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Enviar desafío')),
+      body: _buildGuardedBody(context, ref),
+    );
+  }
+
+  String _fmtDate(DateTime d) {
+    const m = ['','ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+    return '${d.day} ${m[d.month]} ${d.year}';
+  }
+
+  Widget _buildGuardedBody(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider).valueOrNull;
+    if (user != null && user.isSuspended) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.block_outlined,
+                  size: 64, color: OnzeColors.error),
+              const SizedBox(height: 16),
+              Text('Cuenta suspendida',
+                  style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 20)),
+              const SizedBox(height: 8),
+              Text(
+                user.suspensionUntil != null
+                    ? 'No puedes enviar desafíos hasta el ${_fmtDate(user.suspensionUntil!)}'
+                    : 'Tu cuenta está suspendida permanentemente.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: OnzeColors.textSecondary),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final captainTeamsAsync = ref.watch(myCaptainTeamsProvider);
     final fieldsAsync = ref.watch(verifiedFieldsProvider);
     final sendState = ref.watch(sendChallengeProvider);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Enviar desafío')),
-      body: captainTeamsAsync.when(
+    return captainTeamsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator(color: OnzeColors.accent)),
         error: (e, _) => _errorText(context, e.toString()),
         data: (captainTeams) {
@@ -49,8 +97,7 @@ class _SendChallengeScreenState extends ConsumerState<SendChallengeScreen> {
           }
           return _buildForm(context, captainTeams, fieldsAsync, sendState);
         },
-      ),
-    );
+      );
   }
 
   Widget _buildForm(
@@ -255,6 +302,8 @@ class _FieldDropdown extends StatelessWidget {
     }
     return DropdownButtonFormField<String>(
       initialValue: selectedId,
+      isExpanded: true,
+      itemHeight: 56,
       decoration: InputDecoration(
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         filled: true,
@@ -268,7 +317,21 @@ class _FieldDropdown extends StatelessWidget {
         for (final f in fields)
           DropdownMenuItem<String>(
             value: f.id,
-            child: Text(f.name, overflow: TextOverflow.ellipsis),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(f.name, overflow: TextOverflow.ellipsis),
+                Text(
+                  f.address,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: OnzeColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
           ),
       ],
       onChanged: (id) {

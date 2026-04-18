@@ -3,25 +3,44 @@
 // Requiere setup nativo antes de funcionar:
 //   Android: colocar google-services.json en android/app/
 //   iOS:     colocar GoogleService-Info.plist en ios/Runner/
-//
-// Mientras el proyecto no esté conectado a Firebase, todas las llamadas
-// son silenciosas (try/catch) para no bloquear el arranque de la app.
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../../core/utils/logger.dart';
 import 'supabase_service.dart';
 
-/// Handler de mensajes en background (requiere anotación vm:entry-point).
-/// Registrarlo en main.dart antes de runApp.
+// ---------------------------------------------------------------------------
+// Canal Android
+// ---------------------------------------------------------------------------
+
+const _androidChannel = AndroidNotificationChannel(
+  'onze_default',
+  'Onze',
+  description: 'Notificaciones de Onze',
+  importance: Importance.high,
+  playSound: true,
+  enableVibration: true,
+);
+
+final _localNotifications = FlutterLocalNotificationsPlugin();
+
+// ---------------------------------------------------------------------------
+// Background handler (top-level, requerido por FCM)
+// ---------------------------------------------------------------------------
+
+/// Handler de mensajes en background. Debe ser top-level (no método de clase).
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // Firebase ya inicializado por el sistema en background
   log.d('FCM background: ${message.notification?.title}');
 }
 
-/// Singleton que gestiona el ciclo de vida de FCM en la app.
+// ---------------------------------------------------------------------------
+// Servicio principal
+// ---------------------------------------------------------------------------
+
+/// Singleton que gestiona el ciclo de vida de FCM y notificaciones locales.
 class NotificationService {
   NotificationService._();
   static final instance = NotificationService._();
@@ -32,26 +51,41 @@ class NotificationService {
   // Inicialización
   // ---------------------------------------------------------------------------
 
-  /// Inicializa Firebase y configura los handlers de mensajes.
+  /// Inicializa Firebase, FCM y flutter_local_notifications.
   /// Seguro de llamar aunque Firebase no esté configurado (falla silenciosamente).
   Future<void> initialize() async {
     try {
       await Firebase.initializeApp();
       _ready = true;
 
-      // Handler de mensajes en background (registrado a nivel global)
-      FirebaseMessaging.onBackgroundMessage(
-          firebaseMessagingBackgroundHandler);
+      await _initLocalNotifications();
 
-      // Handler de mensajes en primer plano
+      // Background handler (registrado a nivel global)
+      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
+      // Foreground: mostrar notificación local
       FirebaseMessaging.onMessage.listen(_onForegroundMessage);
 
-      // Handler cuando el usuario toca una notificación background
+      // Usuario toca una notificación mientras la app estaba en background
       FirebaseMessaging.onMessageOpenedApp.listen(_onNotificationTap);
 
-      // Verificar si la app fue abierta desde una notificación terminada
+      // App abierta desde notificación con la app cerrada
       final initial = await FirebaseMessaging.instance.getInitialMessage();
       if (initial != null) _onNotificationTap(initial);
+
+      // Renovaciones de token → actualizar BD
+      FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
+        log.d('FCM token renovado — guardando en BD');
+        _saveTokenIfAuthenticated(newToken);
+      });
+
+      // iOS: mostrar notificaciones aunque la app esté en foreground
+      await FirebaseMessaging.instance
+          .setForegroundNotificationPresentationOptions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
 
       log.i('Firebase / FCM inicializado correctamente');
     } catch (e) {
@@ -60,6 +94,26 @@ class NotificationService {
         'Configura google-services.json (Android) y GoogleService-Info.plist (iOS).',
       );
     }
+  }
+
+  Future<void> _initLocalNotifications() async {
+    // Crear el canal Android (necesario desde Android 8+)
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(_androidChannel);
+
+    const initAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const initIos = DarwinInitializationSettings(
+      requestAlertPermission: false, // ya lo pedimos vía FCM
+      requestBadgePermission: false,
+      requestSoundPermission: false,
+    );
+
+    await _localNotifications.initialize(
+      const InitializationSettings(android: initAndroid, iOS: initIos),
+      onDidReceiveNotificationResponse: _onLocalNotificationTap,
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -101,35 +155,85 @@ class NotificationService {
   /// Llamar después de que el usuario se autentique.
   Future<void> saveTokenToDb(String userId) async {
     final token = await getToken();
-    if (token == null) return;
-    try {
-      await supabase
-          .from('users')
-          .update({'fcm_token': token})
-          .eq('id', userId);
-      log.d('FCM token guardado para usuario $userId');
-    } catch (e) {
-      log.w('Error al guardar FCM token en DB: $e');
+    if (token == null) {
+      log.w('FCM token null — Firebase no listo o sin permiso');
+      return;
     }
+    log.d('FCM token obtenido: ${token.substring(0, 20)}...');
+    await _persistToken(userId, token);
   }
 
   // ---------------------------------------------------------------------------
   // Handlers internos
   // ---------------------------------------------------------------------------
 
+  /// Muestra una notificación local cuando llega un mensaje en foreground.
   void _onForegroundMessage(RemoteMessage message) {
-    // En primer plano FCM no muestra la notificación automáticamente.
-    // En Fase 2 se mostrará un banner in-app (flutter_local_notifications).
-    log.d(
-      'FCM primer plano — título: ${message.notification?.title} '
-      'data: ${message.data}',
+    final notification = message.notification;
+    if (notification == null) return;
+
+    final title = notification.title ?? '';
+    final body = notification.body ?? '';
+    final screen = message.data['screen'] as String?;
+
+    log.d('FCM foreground — título: $title');
+
+    _localNotifications.show(
+      // ID único basado en el hashCode del messageId para evitar duplicados
+      message.messageId?.hashCode ?? DateTime.now().millisecondsSinceEpoch,
+      title,
+      body,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _androidChannel.id,
+          _androidChannel.name,
+          channelDescription: _androidChannel.description,
+          importance: Importance.high,
+          priority: Priority.high,
+          icon: '@mipmap/ic_launcher',
+        ),
+        iOS: const DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
+      ),
+      payload: screen,
     );
   }
 
+  /// Maneja el tap en una notificación FCM recibida en background/terminated.
   void _onNotificationTap(RemoteMessage message) {
-    // La navegación deep-link se implementará en Fase 2 con el router.
-    // Por ahora solo se loggea el dato de pantalla destino.
-    final screen = message.data['screen'];
-    log.i('FCM tap — navegar a: $screen');
+    final screen = message.data['screen'] as String?;
+    log.i('FCM tap (background) — pantalla destino: $screen');
+    // TODO Fase 2: navegar con go_router usando el screen destino
+  }
+
+  /// Maneja el tap en una notificación local (foreground).
+  void _onLocalNotificationTap(NotificationResponse response) {
+    final screen = response.payload;
+    log.i('FCM tap (foreground) — pantalla destino: $screen');
+    // TODO Fase 2: navegar con go_router usando el screen destino
+  }
+
+  // ---------------------------------------------------------------------------
+  // Helpers privados
+  // ---------------------------------------------------------------------------
+
+  Future<void> _persistToken(String userId, String token) async {
+    try {
+      await supabase
+          .from('users')
+          .update({'fcm_token': token})
+          .eq('id', userId);
+      log.i('FCM token guardado en BD para usuario $userId');
+    } catch (e) {
+      log.w('Error al guardar FCM token en DB: $e');
+    }
+  }
+
+  void _saveTokenIfAuthenticated(String token) {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId != null) _persistToken(userId, token);
   }
 }

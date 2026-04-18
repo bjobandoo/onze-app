@@ -14,6 +14,12 @@ abstract final class PushEvent {
   static const String matchConfirmed = 'match_confirmed';
   static const String matchRejectedOwner = 'match_rejected_owner';
   static const String teamInvitation = 'team_invitation';
+
+  /// Capitán reportó y los reportes no coinciden → dueño debe resolver.
+  static const String matchDisputed = 'match_disputed';
+
+  /// Dueño resolvió la disputa → notificar a ambos capitanes.
+  static const String matchDisputeResolved = 'match_dispute_resolved';
 }
 
 /// Invoca la Edge Function `send-notification` de forma asíncrona sin bloquear.

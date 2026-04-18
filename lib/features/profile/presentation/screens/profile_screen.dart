@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/routing/app_router.dart';
 import '../../../../core/theme/onze_colors.dart';
 import '../../../../features/auth/presentation/providers/auth_providers.dart';
+import '../../../../features/sanctions/presentation/providers/sanctions_providers.dart';
 import '../../../../shared/models/app_user.dart';
 import '../../../../shared/widgets/onze_button.dart';
 import '../../domain/models/player_profile.dart';
@@ -165,11 +166,37 @@ class _ProfileContent extends StatelessWidget {
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
+        if (user.username != null && user.username!.isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Text(
+            '@${user.username}',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: OnzeColors.highlight,
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+        ],
         const SizedBox(height: 4),
         Text(
           user.phone.replaceFirst('+593', '0'),
           style: Theme.of(context).textTheme.bodySmall,
         ),
+        if (user.yellowCardsCount > 0) ...[
+          const SizedBox(height: 6),
+          Row(
+            children: List.generate(3, (i) {
+              final filled = i < user.yellowCardsCount;
+              return Padding(
+                padding: const EdgeInsets.only(right: 3),
+                child: Icon(
+                  filled ? Icons.square_rounded : Icons.square_outlined,
+                  color: filled ? OnzeColors.warning : OnzeColors.border,
+                  size: 16,
+                ),
+              );
+            }),
+          ),
+        ],
         if (user.isSuspended) ...[
           const SizedBox(height: 8),
           Container(
@@ -280,11 +307,65 @@ class _ProfileContent extends StatelessWidget {
   }
 
   Widget _buildAccountSection(BuildContext context) {
+    final cardsAsync = ref.watch(myYellowCardsProvider);
+    final pendingCount = cardsAsync.valueOrNull?.length ?? 0;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const _SectionLabel('CUENTA'),
         const SizedBox(height: 12),
+        if (user.isSuspended || user.yellowCardsCount > 0 || pendingCount > 0)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: GestureDetector(
+              onTap: () => context.push(AppRoutes.sanctions),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  color: OnzeColors.surfaceHigh,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: user.isSuspended
+                        ? OnzeColors.error.withValues(alpha: 0.4)
+                        : OnzeColors.warning.withValues(alpha: 0.4),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      user.isSuspended
+                          ? Icons.block_outlined
+                          : Icons.warning_amber_outlined,
+                      color: user.isSuspended
+                          ? OnzeColors.error
+                          : OnzeColors.warning,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        user.isSuspended
+                            ? 'Cuenta suspendida — ver detalles'
+                            : 'Tienes $pendingCount tarjeta(s) — ver sanciones',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward_ios,
+                        size: 14, color: OnzeColors.textSecondary),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        OnzeButton(
+          label: 'Mis sanciones',
+          icon: Icons.gavel_outlined,
+          variant: OnzeButtonVariant.outline,
+          onPressed: () => context.push(AppRoutes.sanctions),
+        ),
+        const SizedBox(height: 10),
         OnzeButton(
           label: 'Cerrar sesión',
           icon: Icons.logout,

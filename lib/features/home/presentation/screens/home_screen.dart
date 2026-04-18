@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/routing/app_router.dart';
 import '../../../../core/theme/onze_colors.dart';
 import '../../../../features/auth/presentation/providers/auth_providers.dart';
+import '../../../../features/matches/presentation/providers/matches_providers.dart';
 
 /// Pantalla de inicio — shell de navegación principal.
 class HomeScreen extends ConsumerWidget {
@@ -23,6 +24,7 @@ class HomeScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _HomeHeader(userName: userName),
+            _PendingReportBanner(),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
@@ -51,6 +53,13 @@ class HomeScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 10),
                   _HomeCard(
+                    icon: Icons.leaderboard_outlined,
+                    title: 'Ranking',
+                    subtitle: 'Clasificación ELO de equipos',
+                    onTap: () => context.push(AppRoutes.ranking),
+                  ),
+                  const SizedBox(height: 10),
+                  _HomeCard(
                     icon: Icons.stadium_outlined,
                     title: isOwner ? 'Mis canchas' : 'Registrar cancha',
                     subtitle: isOwner
@@ -61,6 +70,67 @@ class HomeScreen extends ConsumerWidget {
                 ],
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Banner de bloqueo — partidos pendientes de reporte
+// ---------------------------------------------------------------------------
+
+/// Banner prominente que aparece cuando el capitán tiene partidos sin reportar.
+/// No se puede descartar — el usuario debe ir a reportar.
+class _PendingReportBanner extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pendingAsync = ref.watch(pendingMyReportProvider);
+    final count = pendingAsync.valueOrNull?.length ?? 0;
+    if (count == 0) return const SizedBox.shrink();
+
+    return GestureDetector(
+      onTap: () => context.push(AppRoutes.matchRequests),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        decoration: BoxDecoration(
+          color: OnzeColors.error.withValues(alpha: 0.12),
+          border: const Border(
+            bottom: BorderSide(color: OnzeColors.error, width: 1),
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded,
+                color: OnzeColors.error, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    count == 1
+                        ? '1 partido pendiente de reportar'
+                        : '$count partidos pendientes de reportar',
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: OnzeColors.error,
+                    ),
+                  ),
+                  Text(
+                    'Tienes 24h para reportar el resultado.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: OnzeColors.error.withValues(alpha: 0.8),
+                        ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios,
+                color: OnzeColors.error, size: 14),
           ],
         ),
       ),
