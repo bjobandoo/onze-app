@@ -12,8 +12,10 @@ import 'package:flutter/material.dart';
 import '../domain/fields_repository.dart';
 import '../domain/models/field.dart';
 import '../domain/models/field_enums.dart';
+import '../domain/models/field_review.dart';
 import '../domain/models/field_schedule.dart';
 import '../domain/models/owner_profile.dart';
+import '../domain/models/owner_stats.dart';
 
 /// Implementación de [FieldsRepository] usando Supabase.
 class FieldsRepositoryImpl implements FieldsRepository {
@@ -336,4 +338,112 @@ class FieldsRepositoryImpl implements FieldsRepository {
 
   static String _formatTime(TimeOfDay t) =>
       '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}:00';
+
+  // ---------------------------------------------------------------------------
+  // Reseñas
+  // ---------------------------------------------------------------------------
+
+  static const _reviewSelect =
+      '*, user:users!user_id(id, full_name, avatar_url)';
+
+  @override
+  Future<List<FieldReview>> getFieldReviews(String fieldId) async {
+    try {
+      final rows = await supabase
+          .from('field_reviews')
+          .select(_reviewSelect)
+          .eq('field_id', fieldId)
+          .order('created_at', ascending: false);
+
+      return (rows as List)
+          .map((r) => FieldReview.fromMap(r as Map<String, dynamic>))
+          .toList();
+    } on sb.PostgrestException catch (e) {
+      log.e('Error al obtener reseñas de cancha $fieldId', error: e);
+      throw DatabaseException('No se pudieron cargar las reseñas.', code: e.code);
+    }
+  }
+
+  @override
+  Future<FieldReview?> getMyReview({
+    required String fieldId,
+    required String userId,
+  }) async {
+    try {
+      final row = await supabase
+          .from('field_reviews')
+          .select(_reviewSelect)
+          .eq('field_id', fieldId)
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      if (row == null) return null;
+      return FieldReview.fromMap(row);
+    } on sb.PostgrestException catch (e) {
+      log.e('Error al obtener reseña propia', error: e);
+      throw DatabaseException('No se pudo cargar tu reseña.', code: e.code);
+    }
+  }
+
+  @override
+  Future<void> upsertReview({
+    required String fieldId,
+    required String userId,
+    required int rating,
+    String? comment,
+  }) async {
+    try {
+      await supabase.from('field_reviews').upsert(
+        {
+          'field_id':   fieldId,
+          'user_id':    userId,
+          'rating':     rating,
+          'comment':    comment,
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        onConflict: 'field_id,user_id',
+      );
+      log.i('Reseña guardada — cancha: $fieldId usuario: $userId rating: $rating');
+    } on sb.PostgrestException catch (e) {
+      log.e('Error al guardar reseña', error: e);
+      throw DatabaseException('No se pudo guardar la reseña.', code: e.code);
+    }
+  }
+
+  @override
+  Future<void> deleteReview({
+    required String fieldId,
+    required String userId,
+  }) async {
+    try {
+      await supabase
+          .from('field_reviews')
+          .delete()
+          .eq('field_id', fieldId)
+          .eq('user_id', userId);
+      log.i('Reseña eliminada — cancha: $fieldId usuario: $userId');
+    } on sb.PostgrestException catch (e) {
+      log.e('Error al eliminar reseña', error: e);
+      throw DatabaseException('No se pudo eliminar la reseña.', code: e.code);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Panel del dueño
+  // ---------------------------------------------------------------------------
+
+  @override
+  Future<OwnerStats> getOwnerStats(String ownerId) async {
+    try {
+      final data = await supabase
+          .rpc('get_owner_stats', params: {'p_owner_id': ownerId});
+      return OwnerStats.fromJson(data as Map<String, dynamic>);
+    } on sb.PostgrestException catch (e) {
+      log.e('Error al obtener estadísticas del dueño $ownerId', error: e);
+      throw DatabaseException(
+        'No se pudieron cargar las estadísticas.',
+        code: e.code,
+      );
+    }
+  }
 }

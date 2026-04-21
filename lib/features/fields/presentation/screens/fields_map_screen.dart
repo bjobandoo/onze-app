@@ -9,6 +9,7 @@ import '../../../../core/theme/onze_colors.dart';
 import '../../domain/models/field.dart';
 import '../../domain/models/field_schedule.dart';
 import '../providers/fields_providers.dart';
+import '../widgets/field_reviews_section.dart';
 
 /// Centro de Ibarra, Ecuador.
 const _ibarraCenter = LatLng(0.3516, -78.1221);
@@ -244,6 +245,10 @@ class _FieldBottomSheet extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
                 _buildSchedulesSection(context, schedulesAsync),
+                const SizedBox(height: 20),
+                const Divider(color: OnzeColors.border, height: 1),
+                const SizedBox(height: 16),
+                FieldReviewsSection(field: field),
                 const SizedBox(height: 24),
               ],
             ),

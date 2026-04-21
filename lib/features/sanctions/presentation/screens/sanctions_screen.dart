@@ -8,6 +8,8 @@ import '../../../../core/theme/onze_colors.dart';
 import '../../../../features/auth/presentation/providers/auth_providers.dart';
 import '../../domain/models/yellow_card.dart';
 import '../providers/sanctions_providers.dart';
+import '../../../../features/onboarding/presentation/providers/onboarding_providers.dart';
+import '../../../../features/onboarding/presentation/widgets/onze_tip_banner.dart';
 
 class SanctionsScreen extends ConsumerWidget {
   const SanctionsScreen({super.key});
@@ -17,9 +19,26 @@ class SanctionsScreen extends ConsumerWidget {
     final userAsync = ref.watch(currentUserProvider);
     final cardsAsync = ref.watch(myYellowCardsProvider);
 
+    final tipDismissed = ref.watch(onboardingProvider
+        .select((s) => s.contains(kObSanctions)));
+
     return Scaffold(
       appBar: AppBar(title: const Text('Mis sanciones')),
-      body: userAsync.when(
+      body: Column(
+        children: [
+          if (!tipDismissed)
+            OnzeTipBanner(
+              icon: Icons.warning_amber_rounded,
+              title: 'Tarjetas y sanciones',
+              body: 'Acumular 3 tarjetas amarillas genera una tarjeta roja '
+                  'y suspensión temporal. Las tarjetas las emite el sistema '
+                  'cuando se reporta conducta antideportiva.',
+              onDismiss: () => ref
+                  .read(onboardingProvider.notifier)
+                  .dismiss(kObSanctions),
+            ),
+          Expanded(
+            child: userAsync.when(
         loading: () => const Center(
             child: CircularProgressIndicator(color: OnzeColors.accent)),
         error: (e, _) => _ErrorView(message: e.toString()),
@@ -72,6 +91,9 @@ class SanctionsScreen extends ConsumerWidget {
             ),
           );
         },
+      ),
+          ),
+        ],
       ),
     );
   }

@@ -117,6 +117,8 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
                 const _SectionLabel('ESTADÍSTICAS'),
                 const SizedBox(height: 12),
                 TeamStatsSection(team: team),
+                const SizedBox(height: 12),
+                _AchievementsButton(teamId: team.id),
                 const SizedBox(height: 32),
                 _buildMembersSection(
                   context,
@@ -365,6 +367,43 @@ class _TeamDetailScreenState extends ConsumerState<TeamDetailScreen> {
     } catch (e, st) {
       log.e('Error al abandonar equipo', error: e, stackTrace: st);
     }
+  }
+}
+
+class _AchievementsButton extends StatelessWidget {
+  const _AchievementsButton({required this.teamId});
+  final String teamId;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => context.push(
+        AppRoutes.achievementsTeam(teamId),
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: OnzeColors.surfaceHigh,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: OnzeColors.border),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.emoji_events_outlined,
+                color: OnzeColors.highlight, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Ver vitrina de logros',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios,
+                size: 14, color: OnzeColors.textSecondary),
+          ],
+        ),
+      ),
+    );
   }
 }
 

@@ -29,6 +29,19 @@ class OwnerFieldsScreen extends ConsumerWidget {
           ownerProfileAsync.whenOrNull(
                 data: (profile) => profile != null
                     ? IconButton(
+                        icon: const Icon(Icons.bar_chart_outlined),
+                        tooltip: 'Estadísticas',
+                        onPressed: () => context.push(
+                          AppRoutes.ownerDashboard,
+                          extra: profile.userId,
+                        ),
+                      )
+                    : null,
+              ) ??
+              const SizedBox.shrink(),
+          ownerProfileAsync.whenOrNull(
+                data: (profile) => profile != null
+                    ? IconButton(
                         icon: const Icon(Icons.add),
                         tooltip: 'Registrar cancha',
                         onPressed: () =>

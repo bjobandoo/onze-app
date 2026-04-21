@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/stats_repository_impl.dart';
 import '../../domain/models/ranking_entry.dart';
 import '../../domain/models/ranking_snapshot.dart';
+import '../../domain/models/team_medal.dart';
 import '../../domain/stats_repository.dart';
 
 final statsRepositoryProvider = Provider<StatsRepository>(
@@ -22,6 +23,12 @@ final teamPeriodHistoryProvider =
     FutureProvider.autoDispose.family<List<RankingSnapshot>, String>(
   (ref, teamId) =>
       ref.read(statsRepositoryProvider).getTeamPeriodHistory(teamId),
+);
+
+/// Medallas ELO obtenidas por un equipo.
+final teamMedalsProvider =
+    FutureProvider.autoDispose.family<List<TeamMedal>, String>(
+  (ref, teamId) => ref.read(statsRepositoryProvider).getTeamMedals(teamId),
 );
 
 /// Ranking del último periodo quincenal.

@@ -7,6 +7,7 @@ import '../../../core/utils/logger.dart';
 import '../../../shared/services/supabase_service.dart';
 import '../domain/models/ranking_entry.dart';
 import '../domain/models/ranking_snapshot.dart';
+import '../domain/models/team_medal.dart';
 import '../domain/stats_repository.dart';
 
 class StatsRepositoryImpl implements StatsRepository {
@@ -53,6 +54,33 @@ class StatsRepositoryImpl implements StatsRepository {
       log.e('Error al obtener historial de periodos', error: e);
       throw DatabaseException(
           'No se pudo cargar el historial.', code: e.code);
+    }
+  }
+
+  @override
+  Future<List<TeamMedal>> getTeamMedals(String teamId) async {
+    try {
+      final rows = await supabase
+          .from('team_achievements')
+          .select(
+            'unlocked_at, achievement:achievements!achievement_id(id, code, name)',
+          )
+          .eq('team_id', teamId)
+          .order('unlocked_at');
+
+      return (rows as List)
+          .map((r) => r as Map<String, dynamic>)
+          .where((r) {
+            final code =
+                (r['achievement'] as Map<String, dynamic>?)?['code'] as String? ??
+                    '';
+            return code.startsWith('elo_');
+          })
+          .map(TeamMedal.fromMap)
+          .toList();
+    } on sb.PostgrestException catch (e) {
+      log.e('Error al obtener medallas del equipo', error: e);
+      throw DatabaseException('No se pudieron cargar las medallas.', code: e.code);
     }
   }
 

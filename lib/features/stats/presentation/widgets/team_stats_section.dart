@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/onze_colors.dart';
 import '../../../../features/teams/domain/models/team.dart';
 import '../../domain/models/ranking_snapshot.dart';
+import '../../domain/models/team_medal.dart';
 import '../providers/stats_providers.dart';
 
 /// Muestra el badge ELO, stats globales y historial de periodos de un equipo.
@@ -18,12 +19,19 @@ class TeamStatsSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final periodAsync = ref.watch(teamPeriodHistoryProvider(team.id));
+    final medalsAsync = ref.watch(teamMedalsProvider(team.id));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // ELO badge prominente
         _EloBadge(team: team),
+        const SizedBox(height: 16),
+        // Medallas ELO
+        _EloMedalsRow(
+          currentTier: team.eloTier,
+          medalsAsync: medalsAsync,
+        ),
         const SizedBox(height: 16),
         // Fila de stats globales
         _GlobalStatsRow(team: team),
@@ -222,6 +230,109 @@ class _StatCell extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Fila de medallas ELO
+// ---------------------------------------------------------------------------
+
+class _EloMedalsRow extends StatelessWidget {
+  const _EloMedalsRow({
+    required this.currentTier,
+    required this.medalsAsync,
+  });
+
+  final EloTier currentTier;
+  final AsyncValue<List<TeamMedal>> medalsAsync;
+
+  static const _allTiers = EloTier.values; // bronce → diamante
+
+  @override
+  Widget build(BuildContext context) {
+    final earned = medalsAsync.valueOrNull ?? const [];
+    final earnedCodes = earned.map((m) => m.code).toSet();
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: _allTiers.map((tier) {
+        final code = 'elo_${tier.name}';
+        final isEarned = earnedCodes.contains(code);
+        final medal = isEarned
+            ? earned.firstWhere((m) => m.code == code)
+            : null;
+        return _MedalBadge(tier: tier, isEarned: isEarned, medal: medal);
+      }).toList(),
+    );
+  }
+}
+
+class _MedalBadge extends StatelessWidget {
+  const _MedalBadge({
+    required this.tier,
+    required this.isEarned,
+    this.medal,
+  });
+
+  final EloTier tier;
+  final bool isEarned;
+  final TeamMedal? medal;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isEarned ? tier.color : OnzeColors.textSecondary;
+
+    return Tooltip(
+      message: isEarned
+          ? '${tier.label} — obtenida el ${_fmt(medal!.unlockedAt)}'
+          : tier.label,
+      child: Column(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isEarned
+                  ? tier.color.withValues(alpha: 0.12)
+                  : OnzeColors.surface,
+              border: Border.all(
+                color: isEarned
+                    ? tier.color.withValues(alpha: 0.6)
+                    : OnzeColors.border,
+                width: isEarned ? 2 : 1,
+              ),
+            ),
+            child: Center(
+              child: Text(
+                isEarned ? tier.emoji : '🔒',
+                style: TextStyle(
+                  fontSize: isEarned ? 22 : 18,
+                  color: isEarned ? null : OnzeColors.textSecondary,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            tier.label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _fmt(DateTime dt) {
+    const months = [
+      '', 'ene', 'feb', 'mar', 'abr', 'may', 'jun',
+      'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+    ];
+    return '${dt.day} ${months[dt.month]} ${dt.year}';
   }
 }
 

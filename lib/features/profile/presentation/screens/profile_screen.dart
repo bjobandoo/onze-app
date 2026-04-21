@@ -360,6 +360,13 @@ class _ProfileContent extends StatelessWidget {
             ),
           ),
         OnzeButton(
+          label: 'Mis logros',
+          icon: Icons.emoji_events_outlined,
+          variant: OnzeButtonVariant.outline,
+          onPressed: () => context.push(AppRoutes.achievements),
+        ),
+        const SizedBox(height: 10),
+        OnzeButton(
           label: 'Mis sanciones',
           icon: Icons.gavel_outlined,
           variant: OnzeButtonVariant.outline,

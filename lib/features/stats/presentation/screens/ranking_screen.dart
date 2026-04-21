@@ -12,6 +12,8 @@ import '../../../../shared/widgets/onze_avatar.dart';
 import '../../domain/models/ranking_entry.dart';
 import '../../domain/models/ranking_snapshot.dart';
 import '../providers/stats_providers.dart';
+import '../../../../features/onboarding/presentation/providers/onboarding_providers.dart';
+import '../../../../features/onboarding/presentation/widgets/onze_tip_banner.dart';
 
 class RankingScreen extends ConsumerStatefulWidget {
   const RankingScreen({super.key});
@@ -53,12 +55,28 @@ class _RankingScreenState extends ConsumerState<RankingScreen>
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tab,
+      body: Column(
         children: [
-          _GlobalTab(),
-          _PeriodTab(provider: biweeklyRankingProvider),
-          _PeriodTab(provider: monthlyRankingProvider),
+          if (!ref.watch(onboardingProvider.notifier).isDismissed(kObElo))
+            OnzeTipBanner(
+              icon: Icons.leaderboard_outlined,
+              title: 'Sistema ELO',
+              body: 'El ELO mide la fortaleza de cada equipo. Ganar suma puntos y '
+                  'perder los resta. Vencer a un rival con mayor ELO que tú da '
+                  'más puntos que ganarle a uno más débil.',
+              onDismiss: () =>
+                  ref.read(onboardingProvider.notifier).dismiss(kObElo),
+            ),
+          Expanded(
+            child: TabBarView(
+              controller: _tab,
+              children: [
+                _GlobalTab(),
+                _PeriodTab(provider: biweeklyRankingProvider),
+                _PeriodTab(provider: monthlyRankingProvider),
+              ],
+            ),
+          ),
         ],
       ),
     );

@@ -91,7 +91,7 @@ class _CreateProfileScreenState extends ConsumerState<CreateProfileScreen> {
         dominantFoot: _dominantFoot,
         experienceLevel: _experience,
       );
-      if (mounted) context.go(AppRoutes.home);
+      if (mounted) context.go(AppRoutes.onboarding);
     } on OnzeException catch (e) {
       setState(() => _globalError = e.message);
     } finally {

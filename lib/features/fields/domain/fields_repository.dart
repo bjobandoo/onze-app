@@ -6,8 +6,10 @@ import 'package:flutter/material.dart';
 
 import 'models/field.dart';
 import 'models/field_enums.dart';
+import 'models/field_review.dart';
 import 'models/field_schedule.dart';
 import 'models/owner_profile.dart';
+import 'models/owner_stats.dart';
 
 /// Contrato de acceso a datos para canchas y perfil de dueño.
 abstract class FieldsRepository {
@@ -89,4 +91,38 @@ abstract class FieldsRepository {
 
   /// Activa o desactiva un bloque horario.
   Future<void> setScheduleActive(String id, {required bool isActive});
+
+  // ---------------------------------------------------------------------------
+  // Reseñas
+  // ---------------------------------------------------------------------------
+
+  /// Devuelve todas las reseñas de una cancha, ordenadas por fecha descendente.
+  Future<List<FieldReview>> getFieldReviews(String fieldId);
+
+  /// Devuelve la reseña del [userId] para la cancha [fieldId], o null.
+  Future<FieldReview?> getMyReview({
+    required String fieldId,
+    required String userId,
+  });
+
+  /// Crea o actualiza la reseña del usuario autenticado para la cancha.
+  Future<void> upsertReview({
+    required String fieldId,
+    required String userId,
+    required int rating,
+    String? comment,
+  });
+
+  /// Elimina la reseña del usuario autenticado para la cancha.
+  Future<void> deleteReview({
+    required String fieldId,
+    required String userId,
+  });
+
+  // ---------------------------------------------------------------------------
+  // Panel del dueño
+  // ---------------------------------------------------------------------------
+
+  /// Estadísticas globales + desglose por cancha para el panel del dueño.
+  Future<OwnerStats> getOwnerStats(String ownerId);
 }

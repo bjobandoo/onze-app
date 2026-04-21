@@ -12,8 +12,10 @@ import '../../data/fields_repository_impl.dart';
 import '../../domain/fields_repository.dart';
 import '../../domain/models/field.dart';
 import '../../domain/models/field_enums.dart';
+import '../../domain/models/field_review.dart';
 import '../../domain/models/field_schedule.dart';
 import '../../domain/models/owner_profile.dart';
+import '../../domain/models/owner_stats.dart';
 
 final fieldsRepositoryProvider = Provider<FieldsRepository>(
   (ref) => FieldsRepositoryImpl(),
@@ -424,4 +426,121 @@ final manageSchedulesProvider = StateNotifierProvider.autoDispose
     .family<ManageSchedulesNotifier, ManageSchedulesState, String>(
   (ref, fieldId) =>
       ManageSchedulesNotifier(ref.read(fieldsRepositoryProvider), fieldId),
+);
+
+// ---------------------------------------------------------------------------
+// Reseñas
+// ---------------------------------------------------------------------------
+
+/// Reseñas de una cancha ordenadas por fecha descendente.
+final fieldReviewsProvider =
+    FutureProvider.autoDispose.family<List<FieldReview>, String>(
+  (ref, fieldId) =>
+      ref.read(fieldsRepositoryProvider).getFieldReviews(fieldId),
+);
+
+/// Reseña del usuario autenticado para una cancha concreta (null si no existe).
+final myFieldReviewProvider =
+    FutureProvider.autoDispose.family<FieldReview?, String>((ref, fieldId) {
+  final userId = ref.watch(currentUserProvider).valueOrNull?.id;
+  if (userId == null) return Future.value(null);
+  return ref
+      .read(fieldsRepositoryProvider)
+      .getMyReview(fieldId: fieldId, userId: userId);
+});
+
+/// Estado del envío de una reseña.
+class SubmitReviewState {
+  const SubmitReviewState({
+    this.isLoading = false,
+    this.errorMessage,
+    this.success = false,
+  });
+
+  final bool isLoading;
+  final String? errorMessage;
+  final bool success;
+
+  bool get hasError => errorMessage != null;
+}
+
+/// Notifier para crear, actualizar o eliminar la reseña del usuario.
+class SubmitReviewNotifier extends StateNotifier<SubmitReviewState> {
+  SubmitReviewNotifier(this._repo, this._ref, this._fieldId)
+      : super(const SubmitReviewState());
+
+  final FieldsRepository _repo;
+  final Ref _ref;
+  final String _fieldId;
+
+  Future<bool> submit({required int rating, String? comment}) async {
+    state = const SubmitReviewState(isLoading: true);
+    try {
+      final userId =
+          _ref.read(currentUserProvider).valueOrNull?.id ?? '';
+      await _repo.upsertReview(
+        fieldId: _fieldId,
+        userId: userId,
+        rating: rating,
+        comment: comment?.trim().isEmpty ?? true ? null : comment?.trim(),
+      );
+      _invalidate();
+      state = const SubmitReviewState(success: true);
+      return true;
+    } on OnzeException catch (e) {
+      state = SubmitReviewState(errorMessage: e.message);
+      return false;
+    } catch (e, st) {
+      log.e('Error inesperado al enviar reseña', error: e, stackTrace: st);
+      state = const SubmitReviewState(
+          errorMessage: 'Error inesperado. Intenta nuevamente.');
+      return false;
+    }
+  }
+
+  Future<bool> delete() async {
+    state = const SubmitReviewState(isLoading: true);
+    try {
+      final userId =
+          _ref.read(currentUserProvider).valueOrNull?.id ?? '';
+      await _repo.deleteReview(fieldId: _fieldId, userId: userId);
+      _invalidate();
+      state = const SubmitReviewState(success: true);
+      return true;
+    } on OnzeException catch (e) {
+      state = SubmitReviewState(errorMessage: e.message);
+      return false;
+    } catch (e, st) {
+      log.e('Error inesperado al eliminar reseña', error: e, stackTrace: st);
+      state = const SubmitReviewState(
+          errorMessage: 'Error inesperado. Intenta nuevamente.');
+      return false;
+    }
+  }
+
+  void _invalidate() {
+    _ref.invalidate(fieldReviewsProvider(_fieldId));
+    _ref.invalidate(myFieldReviewProvider(_fieldId));
+    _ref.invalidate(verifiedFieldsProvider);
+  }
+}
+
+final submitReviewProvider = StateNotifierProvider.autoDispose
+    .family<SubmitReviewNotifier, SubmitReviewState, String>(
+  (ref, fieldId) => SubmitReviewNotifier(
+    ref.read(fieldsRepositoryProvider),
+    ref,
+    fieldId,
+  ),
+);
+
+// ---------------------------------------------------------------------------
+// Panel del dueño
+// ---------------------------------------------------------------------------
+
+/// Estadísticas de reservas e ingresos para todas las canchas del dueño.
+final ownerStatsProvider =
+    FutureProvider.autoDispose.family<OwnerStats, String>(
+  (ref, ownerId) =>
+      ref.read(fieldsRepositoryProvider).getOwnerStats(ownerId),
 );

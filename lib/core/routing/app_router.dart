@@ -12,8 +12,11 @@ import '../../features/fields/presentation/screens/become_owner_screen.dart';
 import '../../features/fields/presentation/screens/edit_field_screen.dart';
 import '../../features/fields/presentation/screens/field_schedules_screen.dart';
 import '../../features/fields/presentation/screens/fields_map_screen.dart';
+import '../../features/fields/presentation/screens/owner_dashboard_screen.dart';
+import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../features/fields/presentation/screens/owner_fields_screen.dart';
 import '../../features/fields/presentation/screens/register_field_screen.dart';
+import '../../features/rewards/presentation/screens/achievements_screen.dart';
 import '../../features/sanctions/presentation/screens/sanctions_screen.dart';
 import '../../features/stats/presentation/screens/ranking_screen.dart';
 import '../../features/teams/presentation/screens/create_team_screen.dart';
@@ -32,6 +35,7 @@ abstract final class AppRoutes {
   static const String login = '/login';
   static const String otp = '/otp';
   static const String createProfile = '/create-profile';
+  static const String onboarding = '/onboarding';
   static const String home = '/home';
   static const String profile = '/profile';
   static const String editProfile = '/profile/edit';
@@ -56,6 +60,10 @@ abstract final class AppRoutes {
   static const String ranking = '/ranking';
   static const String sanctions = '/sanctions';
 
+  // Logros
+  static const String achievements = '/achievements';
+  static String achievementsTeam(String teamId) => '/achievements?team=$teamId';
+
   // Canchas
   static const String fieldsMap = '/fields-map';
 
@@ -63,6 +71,7 @@ abstract final class AppRoutes {
   static const String ownerFields = '/owner';
   static const String becomeOwner = '/owner/become';
   static const String registerField = '/owner/fields/register';
+  static const String ownerDashboard = '/owner/dashboard';
 
   /// Ruta de gestión de horarios de una cancha.
   static String fieldSchedules(String fieldId) => '/owner/fields/$fieldId/schedules';
@@ -85,7 +94,8 @@ GoRouter buildAppRouter(ProviderContainer container) {
 
       final isAuthRoute = path == AppRoutes.login ||
           path == AppRoutes.otp ||
-          path == AppRoutes.createProfile;
+          path == AppRoutes.createProfile ||
+          path == AppRoutes.onboarding;
 
       if (!isLoggedIn && !isAuthRoute) return AppRoutes.login;
       if (isLoggedIn && path == AppRoutes.login) return AppRoutes.home;
@@ -110,6 +120,11 @@ GoRouter buildAppRouter(ProviderContainer container) {
         path: AppRoutes.createProfile,
         name: 'create-profile',
         builder: (context, state) => const CreateProfileScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.onboarding,
+        name: 'onboarding',
+        builder: (context, state) => const OnboardingScreen(),
       ),
       GoRoute(
         path: AppRoutes.home,
@@ -165,6 +180,14 @@ GoRouter buildAppRouter(ProviderContainer container) {
         builder: (context, state) => const SanctionsScreen(),
       ),
       GoRoute(
+        path: AppRoutes.achievements,
+        name: 'achievements',
+        builder: (context, state) {
+          final teamId = state.uri.queryParameters['team'];
+          return AchievementsScreen(teamId: teamId);
+        },
+      ),
+      GoRoute(
         path: AppRoutes.fieldsMap,
         name: 'fields-map',
         builder: (context, state) => const FieldsMapScreen(),
@@ -183,6 +206,14 @@ GoRouter buildAppRouter(ProviderContainer container) {
         path: AppRoutes.registerField,
         name: 'register-field',
         builder: (context, state) => const RegisterFieldScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.ownerDashboard,
+        name: 'owner-dashboard',
+        builder: (context, state) {
+          final ownerId = state.extra as String? ?? '';
+          return OwnerDashboardScreen(ownerId: ownerId);
+        },
       ),
       GoRoute(
         path: '/owner/fields/:id/schedules',

@@ -2,6 +2,7 @@
 
 import 'models/ranking_entry.dart';
 import 'models/ranking_snapshot.dart';
+import 'models/team_medal.dart';
 
 abstract class StatsRepository {
   /// Ranking global de equipos ordenados por ELO descendente.
@@ -14,4 +15,7 @@ abstract class StatsRepository {
   Future<List<RankingSnapshot>> getLatestPeriodRanking(
     RankingPeriodType periodType,
   );
+
+  /// Medallas ELO obtenidas por el equipo (ordenadas por fecha de desbloqueo).
+  Future<List<TeamMedal>> getTeamMedals(String teamId);
 }
