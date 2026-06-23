@@ -57,7 +57,7 @@ class ReportResultScreen extends ConsumerWidget {
           const SizedBox(height: 32),
           Text(
             '¿CUÁL FUE EL RESULTADO\nDE TU EQUIPO?',
-            style: GoogleFonts.inter(
+            style: GoogleFonts.barlowCondensed(
               fontSize: 16,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.5,
@@ -221,7 +221,7 @@ class _MatchHeader extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: OnzeColors.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: OnzeColors.border),
       ),
       child: Column(
@@ -233,7 +233,7 @@ class _MatchHeader extends StatelessWidget {
                   name: match.teamAName, shieldUrl: match.teamAShieldUrl),
               Text(
                 'VS',
-                style: GoogleFonts.inter(
+                style: GoogleFonts.barlowCondensed(
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
                   color: OnzeColors.textSecondary,
@@ -329,7 +329,7 @@ class _ReportButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 20),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(color: color.withValues(alpha: 0.4), width: 1.5),
         ),
         child: Row(
@@ -339,7 +339,7 @@ class _ReportButton extends StatelessWidget {
             const SizedBox(width: 12),
             Text(
               label,
-              style: GoogleFonts.inter(
+              style: GoogleFonts.barlowCondensed(
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 1.0,
@@ -457,7 +457,7 @@ class _ErrorBanner extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: OnzeColors.error.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: OnzeColors.error.withValues(alpha: 0.4)),
       ),
       child: Row(

@@ -43,6 +43,13 @@ final myCaptainTeamIdsProvider = FutureProvider<List<String>>((ref) async {
   return teams.map((t) => t.id).toList();
 });
 
+/// IDs de todos los equipos donde el usuario es miembro (capitán o jugador).
+/// Usado por el historial de partidos del perfil.
+final myMemberTeamIdsProvider = FutureProvider<List<String>>((ref) async {
+  final teams = await ref.watch(myTeamsProvider.future);
+  return teams.map((t) => t.id).toList();
+});
+
 /// Desafíos enviados (como challenger).
 final challengesSentProvider =
     FutureProvider<List<MatchRequest>>((ref) async {
@@ -321,6 +328,53 @@ final sendChallengeProvider =
 );
 
 // ---------------------------------------------------------------------------
+// Creación de reserva amistosa
+// ---------------------------------------------------------------------------
+
+/// Notifier de creación de reservas amistosas. Reutiliza [SendChallengeState].
+class CreateFriendlyNotifier extends StateNotifier<SendChallengeState> {
+  CreateFriendlyNotifier(this._repo) : super(const SendChallengeState());
+
+  final MatchesRepository _repo;
+
+  Future<bool> create({
+    required String teamId,
+    required String fieldId,
+    required DateTime date,
+    required TimeOfDay startTime,
+    required TimeOfDay endTime,
+    required double price,
+  }) async {
+    state = const SendChallengeState(isLoading: true);
+    try {
+      final request = await _repo.createFriendlyBooking(
+        teamId: teamId,
+        fieldId: fieldId,
+        date: date,
+        startTime: startTime,
+        endTime: endTime,
+        price: price,
+      );
+      state = SendChallengeState(sentRequest: request);
+      return true;
+    } on OnzeException catch (e) {
+      state = SendChallengeState(errorMessage: e.message);
+      return false;
+    } catch (e, st) {
+      log.e('Error inesperado al crear amistoso', error: e, stackTrace: st);
+      state = const SendChallengeState(
+          errorMessage: 'Error inesperado. Intenta nuevamente.');
+      return false;
+    }
+  }
+}
+
+final createFriendlyProvider = StateNotifierProvider.autoDispose<
+    CreateFriendlyNotifier, SendChallengeState>(
+  (ref) => CreateFriendlyNotifier(ref.read(matchesRepositoryProvider)),
+);
+
+// ---------------------------------------------------------------------------
 // Partidos oficiales (matches)
 // ---------------------------------------------------------------------------
 
@@ -331,6 +385,35 @@ final myMatchesProvider = FutureProvider<List<Match>>((ref) async {
   final repo = ref.read(matchesRepositoryProvider);
   await repo.markMatchesAwaitingReport();
   return repo.getMyMatches(teamIds);
+});
+
+/// Historial de partidos finalizados de todos los equipos del usuario
+/// (miembro o capitán). Incluye oficiales resueltos/cancelados y amistosos
+/// completados. Ordenado del más reciente al más antiguo.
+final matchHistoryProvider = FutureProvider<List<Match>>((ref) async {
+  final teamIds = await ref.watch(myMemberTeamIdsProvider.future);
+  if (teamIds.isEmpty) return [];
+  final repo = ref.read(matchesRepositoryProvider);
+  await repo.markMatchesAwaitingReport();
+  final matches = await repo.getMyMatches(teamIds);
+  return matches
+      .where((m) =>
+          m.status == MatchStatus.resolved ||
+          m.status == MatchStatus.cancelled)
+      .toList();
+});
+
+/// Próximo partido programado de los equipos donde el usuario es capitán,
+/// o null si no hay ninguno. Usado por la card "Próximo partido" del Home.
+final upcomingMatchProvider = FutureProvider<Match?>((ref) async {
+  final matches = await ref.watch(myMatchesProvider.future);
+  final now = DateTime.now();
+  final upcoming = matches
+      .where((m) =>
+          m.status == MatchStatus.scheduled && m.matchEndDateTime.isAfter(now))
+      .toList()
+    ..sort((a, b) => a.matchEndDateTime.compareTo(b.matchEndDateTime));
+  return upcoming.isEmpty ? null : upcoming.first;
 });
 
 /// Partidos donde el usuario (capitán) aún no ha reportado su resultado.

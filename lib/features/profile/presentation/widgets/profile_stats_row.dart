@@ -72,7 +72,7 @@ class _StatCell extends StatelessWidget {
           children: [
             Text(
               value,
-              style: GoogleFonts.inter(
+              style: GoogleFonts.barlowCondensed(
                 fontSize: 22,
                 fontWeight: FontWeight.w900,
                 color: valueColor ?? OnzeColors.textPrimary,
@@ -82,7 +82,7 @@ class _StatCell extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               label.toUpperCase(),
-              style: GoogleFonts.inter(
+              style: GoogleFonts.barlowCondensed(
                 fontSize: 9,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.0,

@@ -188,7 +188,7 @@ class _EditTeamScreenState extends ConsumerState<EditTeamScreen> {
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
               decoration: BoxDecoration(
                 color: OnzeColors.surface,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: OnzeColors.border),
               ),
               child: Row(
@@ -265,7 +265,7 @@ class _ErrorBanner extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: OnzeColors.error.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: OnzeColors.error.withValues(alpha: 0.4)),
       ),
       child: Row(

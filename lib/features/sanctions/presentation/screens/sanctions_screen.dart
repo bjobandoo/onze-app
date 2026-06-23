@@ -193,7 +193,7 @@ class _SuspensionCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: color.withValues(alpha: _activelySuspended ? 0.08 : 1.0),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: borderColor),
       ),
       child: Column(
@@ -224,11 +224,11 @@ class _SuspensionCard extends StatelessWidget {
                       horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: OnzeColors.error.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     'SUSPENDIDO',
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.barlowCondensed(
                       fontSize: 10,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 1,
@@ -244,7 +244,7 @@ class _SuspensionCard extends StatelessWidget {
               suspensionUntil == null
                   ? 'Suspensión permanente.'
                   : 'Suspendido hasta: ${_formatDate(suspensionUntil!)}',
-              style: TextStyle(
+              style: const TextStyle(
                   fontSize: 12, color: OnzeColors.error),
             ),
           ],
@@ -286,8 +286,8 @@ class _SuspensionCard extends StatelessWidget {
             ],
           ),
           if (yellowCardsCount == 2)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
+            const Padding(
+              padding: EdgeInsets.only(top: 6),
               child: Text(
                 '⚠️ Una tarjeta más resultará en suspensión.',
                 style: TextStyle(
@@ -462,7 +462,7 @@ class _EmptyCards extends StatelessWidget {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: OnzeColors.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: OnzeColors.border),
       ),
       child: Row(

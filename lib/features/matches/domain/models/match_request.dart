@@ -56,6 +56,7 @@ class MatchRequest {
     required this.price,
     required this.status,
     required this.createdAt,
+    this.isFriendly = false,
     this.blockedUntil,
     this.challengerTeamName,
     this.challengedTeamName,
@@ -65,13 +66,18 @@ class MatchRequest {
 
   final String id;
   final String challengerTeamId;
-  final String challengedTeamId;
+
+  /// Equipo rival. `null` en reservas amistosas (un solo equipo).
+  final String? challengedTeamId;
   final String fieldId;
   final DateTime requestedDate;
   final TimeOfDay requestedStartTime;
   final TimeOfDay requestedEndTime;
   final double price;
   final MatchRequestStatus status;
+
+  /// True si es una reserva amistosa (sin equipo rival, sin ELO/estadísticas).
+  final bool isFriendly;
   final DateTime? blockedUntil;
   final DateTime createdAt;
 
@@ -103,7 +109,7 @@ class MatchRequest {
     return MatchRequest(
       id: map['id'] as String,
       challengerTeamId: map['challenger_team_id'] as String,
-      challengedTeamId: map['challenged_team_id'] as String,
+      challengedTeamId: map['challenged_team_id'] as String?,
       fieldId: map['field_id'] as String,
       requestedDate: DateTime.parse(map['requested_date'] as String),
       requestedStartTime:
@@ -112,6 +118,7 @@ class MatchRequest {
       price: (map['price'] as num).toDouble(),
       status:
           MatchRequestStatus.fromDb(map['status'] as String),
+      isFriendly: map['is_friendly'] as bool? ?? false,
       blockedUntil: map['blocked_until'] != null
           ? DateTime.parse(map['blocked_until'] as String)
           : null,

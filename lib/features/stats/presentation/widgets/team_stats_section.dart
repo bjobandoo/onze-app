@@ -76,7 +76,7 @@ class _EloBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
         color: tier.color.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: tier.color.withValues(alpha: 0.35)),
       ),
       child: Row(
@@ -89,7 +89,7 @@ class _EloBadge extends StatelessWidget {
               children: [
                 Text(
                   tier.label.toUpperCase(),
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.barlowCondensed(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 2,
@@ -98,7 +98,7 @@ class _EloBadge extends StatelessWidget {
                 ),
                 Text(
                   '${team.eloRating} puntos ELO',
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.barlowCondensed(
                     fontSize: 22,
                     fontWeight: FontWeight.w900,
                     color: OnzeColors.textPrimary,
@@ -136,7 +136,7 @@ class _WinRateCircle extends StatelessWidget {
         ),
         Text(
           '${(winRate * 100).round()}%',
-          style: GoogleFonts.inter(
+          style: GoogleFonts.barlowCondensed(
             fontSize: 11,
             fontWeight: FontWeight.w800,
             color: OnzeColors.textPrimary,
@@ -215,7 +215,7 @@ class _StatCell extends StatelessWidget {
       children: [
         Text(
           value,
-          style: GoogleFonts.inter(
+          style: GoogleFonts.barlowCondensed(
             fontSize: 22,
             fontWeight: FontWeight.w900,
             color: valueColor ?? OnzeColors.textPrimary,
@@ -367,14 +367,14 @@ class _PeriodRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: OnzeColors.surface,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: OnzeColors.border),
       ),
       child: Row(
         children: [
           Text(
             '#${snapshot.rankPosition}',
-            style: GoogleFonts.inter(
+            style: GoogleFonts.barlowCondensed(
               fontSize: 16,
               fontWeight: FontWeight.w800,
               color: snapshot.rankPosition <= 3

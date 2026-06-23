@@ -204,7 +204,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: OnzeColors.error.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: OnzeColors.error.withValues(alpha: 0.4)),
       ),
       child: Row(

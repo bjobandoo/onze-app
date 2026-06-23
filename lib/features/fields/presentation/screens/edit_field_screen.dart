@@ -313,7 +313,7 @@ class _EditFieldScreenState extends ConsumerState<EditFieldScreen> {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: OnzeColors.surface,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(
                   color: OnzeColors.accent.withValues(alpha: 0.4)),
             ),
@@ -369,7 +369,7 @@ class _ExistingPhotoThumbnail extends StatelessWidget {
           height: 100,
           margin: const EdgeInsets.only(right: 8),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(12),
             color: OnzeColors.surface,
           ),
           clipBehavior: Clip.antiAlias,
@@ -417,7 +417,7 @@ class _NewPhotoThumbnail extends StatelessWidget {
           height: 100,
           margin: const EdgeInsets.only(right: 8),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(12),
             color: OnzeColors.surface,
             border: Border.all(
                 color: OnzeColors.accent.withValues(alpha: 0.5), width: 1.5),
@@ -462,7 +462,7 @@ class _AddPhotoButton extends StatelessWidget {
         height: 100,
         decoration: BoxDecoration(
           color: OnzeColors.surface,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: OnzeColors.accent.withValues(alpha: 0.4),
           ),

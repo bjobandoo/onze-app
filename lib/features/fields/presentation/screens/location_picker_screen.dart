@@ -102,7 +102,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                         horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
                       color: OnzeColors.surface,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: OnzeColors.border),
                     ),
                     child: Text(
@@ -118,7 +118,7 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
                       horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: OnzeColors.surface.withValues(alpha: 0.92),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     'Toca el mapa para marcar la ubicación de tu cancha',

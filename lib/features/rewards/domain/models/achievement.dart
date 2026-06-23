@@ -63,8 +63,8 @@ class Achievement {
       'first_win'    => const Color(0xFFFFD700),
       'win_streak_3' => const Color(0xFFFF6B35),
       'win_streak_5' => const Color(0xFFFF3B30),
-      'captain'      => const Color(0xFF00BF00),
-      _              => const Color(0xFF008001),
+      'captain'      => const Color(0xFF3BDC1E),
+      _              => const Color(0xFF2FA818),
     };
   }
 

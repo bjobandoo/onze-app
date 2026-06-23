@@ -1,5 +1,7 @@
 # Variables de entorno — nunca commitear
 .env
+# Credenciales de servidor (Twilio, FCM) — nunca commitear NI empaquetar en la app
+.env.server
 
 # Miscellaneous
 *.class

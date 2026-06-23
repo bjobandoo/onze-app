@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/onze_colors.dart';
+import '../../core/theme/onze_motion.dart';
+import 'onze_pressable.dart';
 
 /// Botón primario del design system de Onze.
 ///
 /// Alto de 56px, texto en uppercase con letter spacing.
-/// Admite estado de carga y variante outline.
+/// Se encoge sutilmente al presionar y transiciona con fade
+/// entre el label y el estado de carga.
 class OnzeButton extends StatelessWidget {
   const OnzeButton({
     super.key,
@@ -26,62 +29,60 @@ class OnzeButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (variant == OnzeButtonVariant.outline) {
-      return _buildOutline(context);
-    }
-    return _buildFilled(context);
-  }
-
-  Widget _buildFilled(BuildContext context) {
-    final button = ElevatedButton(
-      onPressed: isLoading ? null : onPressed,
-      child: _buildChild(),
-    );
-    return isFullWidth
+    final Widget button = switch (variant) {
+      OnzeButtonVariant.filled => ElevatedButton(
+          onPressed: isLoading ? null : onPressed,
+          child: _buildChild(),
+        ),
+      OnzeButtonVariant.outline => OutlinedButton(
+          onPressed: isLoading ? null : onPressed,
+          child: _buildChild(),
+        ),
+    };
+    final Widget sized = isFullWidth
         ? SizedBox(width: double.infinity, child: button)
         : button;
-  }
-
-  Widget _buildOutline(BuildContext context) {
-    final button = OutlinedButton(
-      onPressed: isLoading ? null : onPressed,
-      style: OutlinedButton.styleFrom(
-        foregroundColor: OnzeColors.highlight,
-        side: const BorderSide(color: OnzeColors.highlight),
-        minimumSize: const Size(double.infinity, 56),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-        textStyle: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1.5,
-        ),
-      ),
-      child: _buildChild(),
+    return OnzePressable(
+      enabled: onPressed != null && !isLoading,
+      child: sized,
     );
-    return isFullWidth
-        ? SizedBox(width: double.infinity, child: button)
-        : button;
   }
 
   Widget _buildChild() {
-    if (isLoading) {
-      return const SizedBox(
-        width: 20,
-        height: 20,
-        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-      );
-    }
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (icon != null) ...[
-          Icon(icon, size: 18),
-          const SizedBox(width: 8),
-        ],
-        Text(label.toUpperCase()),
-      ],
+    return AnimatedSwitcher(
+      duration: OnzeMotion.medium,
+      switchInCurve: OnzeMotion.enter,
+      switchOutCurve: OnzeMotion.exit,
+      transitionBuilder: (child, animation) => FadeTransition(
+        opacity: animation,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.85, end: 1).animate(animation),
+          child: child,
+        ),
+      ),
+      child: isLoading
+          ? SizedBox(
+              key: const ValueKey<String>('loading'),
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: variant == OnzeButtonVariant.filled
+                    ? OnzeColors.onAccent
+                    : OnzeColors.accent,
+              ),
+            )
+          : Row(
+              key: const ValueKey<String>('label'),
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon != null) ...[
+                  Icon(icon, size: 18),
+                  const SizedBox(width: 8),
+                ],
+                Text(label.toUpperCase()),
+              ],
+            ),
     );
   }
 }

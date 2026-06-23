@@ -113,6 +113,7 @@ class Match {
     required this.startTime,
     required this.endTime,
     required this.status,
+    this.isFriendly = false,
     this.teamAReport,
     this.teamBReport,
     this.ownerResolution,
@@ -133,12 +134,17 @@ class Match {
   final String id;
   final String matchRequestId;
   final String teamAId;
-  final String teamBId;
+
+  /// Equipo B. `null` en partidos amistosos (un solo equipo).
+  final String? teamBId;
   final String fieldId;
   final DateTime matchDate;
   final TimeOfDay startTime;
   final TimeOfDay endTime;
   final MatchStatus status;
+
+  /// True si es un partido amistoso (sin rival, sin ELO/estadísticas).
+  final bool isFriendly;
   final MatchReport? teamAReport;
   final MatchReport? teamBReport;
   final OwnerResolution? ownerResolution;
@@ -170,7 +176,7 @@ class Match {
       id: map['id'] as String,
       matchRequestId: map['match_request_id'] as String,
       teamAId: map['team_a_id'] as String,
-      teamBId: map['team_b_id'] as String,
+      teamBId: map['team_b_id'] as String?,
       fieldId: map['field_id'] as String,
       matchDate: DateTime.parse(map['match_date'] as String),
       startTime: TimeOfDay(
@@ -182,6 +188,7 @@ class Match {
         minute: int.parse(endParts[1]),
       ),
       status: MatchStatus.fromDb(map['status'] as String),
+      isFriendly: map['is_friendly'] as bool? ?? false,
       teamAReport: MatchReport.fromDb(map['team_a_report'] as String?),
       teamBReport: MatchReport.fromDb(map['team_b_report'] as String?),
       ownerResolution:

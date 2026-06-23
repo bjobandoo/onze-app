@@ -337,7 +337,7 @@ class _GroupLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text.toUpperCase(),
-      style: GoogleFonts.inter(
+      style: GoogleFonts.barlowCondensed(
         fontSize: 11,
         fontWeight: FontWeight.w700,
         letterSpacing: 1.2,
@@ -375,7 +375,7 @@ class _AchievementCard extends StatelessWidget {
           color: isEarned
               ? achievement.accentColor.withValues(alpha: 0.08)
               : OnzeColors.surfaceHigh,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: isEarned
                 ? achievement.accentColor.withValues(alpha: 0.45)
@@ -413,7 +413,7 @@ class _AchievementCard extends StatelessWidget {
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.inter(
+              style: GoogleFonts.barlowCondensed(
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
                 color: color,
@@ -424,7 +424,7 @@ class _AchievementCard extends StatelessWidget {
               const SizedBox(height: 3),
               Text(
                 _fmtDate(unlockedAt!),
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 9,
                   color: OnzeColors.textSecondary,
                 ),

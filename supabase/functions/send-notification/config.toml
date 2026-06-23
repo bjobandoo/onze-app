@@ -1,2 +1,5 @@
 [functions.send-notification]
-verify_jwt = false
+# Requiere un JWT válido del proyecto (sesión de usuario o anon key).
+# Nunca dejar en false: sin esto cualquiera en internet puede invocar la
+# función y spamear notificaciones push a los usuarios.
+verify_jwt = true

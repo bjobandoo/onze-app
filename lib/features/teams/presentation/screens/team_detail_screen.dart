@@ -384,7 +384,7 @@ class _AchievementsButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: OnzeColors.surfaceHigh,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(color: OnzeColors.border),
         ),
         child: Row(

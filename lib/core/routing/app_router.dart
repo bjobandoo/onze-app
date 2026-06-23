@@ -25,10 +25,12 @@ import '../../features/teams/presentation/screens/team_detail_screen.dart';
 import '../../features/teams/presentation/screens/team_invitations_screen.dart';
 import '../../features/teams/presentation/screens/teams_screen.dart';
 import '../../features/teams/presentation/screens/user_search_screen.dart';
+import '../../features/matches/presentation/screens/match_history_screen.dart';
 import '../../features/matches/presentation/screens/match_requests_screen.dart';
 import '../../features/matches/presentation/screens/send_challenge_screen.dart';
 import '../../shared/services/supabase_service.dart';
 import '../utils/go_router_refresh_stream.dart';
+import 'onze_shell.dart';
 
 /// Rutas nombradas de la aplicación.
 abstract final class AppRoutes {
@@ -39,6 +41,7 @@ abstract final class AppRoutes {
   static const String home = '/home';
   static const String profile = '/profile';
   static const String editProfile = '/profile/edit';
+  static const String matchHistory = '/profile/match-history';
   static const String teams = '/teams';
   static const String createTeam = '/teams/create';
   static const String teamInvitations = '/teams/invitations';
@@ -126,15 +129,66 @@ GoRouter buildAppRouter(ProviderContainer container) {
         name: 'onboarding',
         builder: (context, state) => const OnboardingScreen(),
       ),
-      GoRoute(
-        path: AppRoutes.home,
-        name: 'home',
-        builder: (context, state) => const HomeScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.profile,
-        name: 'profile',
-        builder: (context, state) => const ProfileScreen(),
+      // Shell con dock flotante: las cinco pestañas raíz.
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            OnzeShell(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.home,
+                name: 'home',
+                builder: (context, state) => const HomeScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.fieldsMap,
+                name: 'fields-map',
+                builder: (context, state) => const FieldsMapScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.matchRequests,
+                name: 'match-requests',
+                builder: (context, state) => const MatchRequestsScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.teams,
+                name: 'teams',
+                builder: (context, state) => const TeamsScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.ranking,
+                name: 'ranking',
+                builder: (context, state) => const RankingScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.profile,
+                name: 'profile',
+                builder: (context, state) => const ProfileScreen(),
+              ),
+            ],
+          ),
+        ],
       ),
       GoRoute(
         path: AppRoutes.editProfile,
@@ -145,9 +199,9 @@ GoRouter buildAppRouter(ProviderContainer container) {
         },
       ),
       GoRoute(
-        path: AppRoutes.teams,
-        name: 'teams',
-        builder: (context, state) => const TeamsScreen(),
+        path: AppRoutes.matchHistory,
+        name: 'match-history',
+        builder: (context, state) => const MatchHistoryScreen(),
       ),
       GoRoute(
         path: AppRoutes.createTeam,
@@ -160,19 +214,16 @@ GoRouter buildAppRouter(ProviderContainer container) {
         builder: (context, state) => const TeamInvitationsScreen(),
       ),
       GoRoute(
-        path: AppRoutes.matchRequests,
-        name: 'match-requests',
-        builder: (context, state) => const MatchRequestsScreen(),
-      ),
-      GoRoute(
         path: AppRoutes.sendChallenge,
         name: 'send-challenge',
-        builder: (context, state) => const SendChallengeScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.ranking,
-        name: 'ranking',
-        builder: (context, state) => const RankingScreen(),
+        builder: (context, state) {
+          final args = switch (state.extra) {
+            final SendChallengeArgs a => a,
+            final String fieldId => SendChallengeArgs(fieldId: fieldId),
+            _ => const SendChallengeArgs(),
+          };
+          return SendChallengeScreen(args: args);
+        },
       ),
       GoRoute(
         path: AppRoutes.sanctions,
@@ -186,11 +237,6 @@ GoRouter buildAppRouter(ProviderContainer container) {
           final teamId = state.uri.queryParameters['team'];
           return AchievementsScreen(teamId: teamId);
         },
-      ),
-      GoRoute(
-        path: AppRoutes.fieldsMap,
-        name: 'fields-map',
-        builder: (context, state) => const FieldsMapScreen(),
       ),
       GoRoute(
         path: AppRoutes.ownerFields,

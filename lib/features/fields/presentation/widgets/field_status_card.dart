@@ -23,7 +23,7 @@ class FieldStatusCard extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: OnzeColors.surface,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(color: OnzeColors.border),
         ),
         child: Column(

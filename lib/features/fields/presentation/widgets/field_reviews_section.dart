@@ -101,7 +101,7 @@ class _ReviewsSummary extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             averageRating.toStringAsFixed(1),
-            style: GoogleFonts.inter(
+            style: GoogleFonts.barlowCondensed(
               fontSize: 13,
               fontWeight: FontWeight.w700,
               color: OnzeColors.warning,
@@ -145,7 +145,7 @@ class _WriteReviewButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: OnzeColors.primary.withValues(alpha: 0.4),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
               color: OnzeColors.accent.withValues(alpha: 0.5)),
         ),

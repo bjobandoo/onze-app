@@ -8,12 +8,15 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/routing/app_router.dart';
 import '../../../../core/theme/onze_colors.dart';
+import '../../../../core/theme/onze_motion.dart';
 import '../../../../features/auth/presentation/providers/auth_providers.dart';
 import '../../../../shared/widgets/onze_avatar.dart';
+import '../../../../shared/widgets/onze_select_chip.dart';
 import '../../domain/models/match.dart';
 import '../../domain/models/match_request.dart';
 import '../providers/matches_providers.dart';
 import 'report_result_screen.dart';
+import 'send_challenge_screen.dart';
 
 class MatchRequestsScreen extends ConsumerStatefulWidget {
   const MatchRequestsScreen({super.key});
@@ -24,6 +27,8 @@ class MatchRequestsScreen extends ConsumerStatefulWidget {
 }
 
 class _MatchRequestsScreenState extends ConsumerState<MatchRequestsScreen> {
+  int _index = 0;
+
   @override
   void initState() {
     super.initState();
@@ -40,64 +45,104 @@ class _MatchRequestsScreenState extends ConsumerState<MatchRequestsScreen> {
     final pendingCount =
         ref.watch(pendingMyReportProvider).valueOrNull?.length ?? 0;
 
-    final tabCount = isOwner ? 4 : 3;
+    final tabs = <Widget>[
+      _ReceivedTab(),
+      _SentTab(),
+      _MatchesTab(),
+      if (isOwner) _OwnerTab(),
+    ];
+    final index = _index < tabs.length ? _index : 0;
 
-    return DefaultTabController(
-      length: tabCount,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Desafíos'),
-          bottom: TabBar(
-            indicatorColor: OnzeColors.highlight,
-            labelColor: OnzeColors.textPrimary,
-            unselectedLabelColor: OnzeColors.textSecondary,
-            isScrollable: true,
-            tabAlignment: TabAlignment.start,
-            tabs: [
-              const Tab(text: 'Recibidos'),
-              const Tab(text: 'Enviados'),
-              Tab(
-                child: Row(
-                  children: [
-                    const Text('Partidos'),
-                    if (pendingCount > 0) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: OnzeColors.error,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          '$pendingCount',
-                          style: const TextStyle(
-                              fontSize: 10,
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                    ],
-                  ],
+    return Scaffold(
+      appBar: AppBar(title: const Text('Desafíos')),
+      body: Column(
+        children: [
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+            child: Row(
+              children: [
+                OnzeSelectChip(
+                  label: 'Recibidos',
+                  isSelected: index == 0,
+                  onTap: () => setState(() => _index = 0),
                 ),
-              ),
-              if (isOwner) const Tab(text: 'Mi cancha'),
-            ],
+                const SizedBox(width: 8),
+                OnzeSelectChip(
+                  label: 'Enviados',
+                  isSelected: index == 1,
+                  onTap: () => setState(() => _index = 1),
+                ),
+                const SizedBox(width: 8),
+                OnzeSelectChip(
+                  label: 'Partidos',
+                  isSelected: index == 2,
+                  badgeCount: pendingCount,
+                  onTap: () => setState(() => _index = 2),
+                ),
+                if (isOwner) ...[
+                  const SizedBox(width: 8),
+                  OnzeSelectChip(
+                    label: 'Mi cancha',
+                    isSelected: index == 3,
+                    onTap: () => setState(() => _index = 3),
+                  ),
+                ],
+              ],
+            ),
           ),
-        ),
-        body: TabBarView(
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: OnzeMotion.medium,
+              switchInCurve: OnzeMotion.enter,
+              switchOutCurve: OnzeMotion.exit,
+              child: tabs[index],
+            ),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showCreateSheet(context),
+        icon: const Icon(Icons.sports_soccer),
+        label: const Text('Reservar'),
+        backgroundColor: OnzeColors.accent,
+        foregroundColor: OnzeColors.onAccent,
+      ),
+    );
+  }
+
+  void _showCreateSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: OnzeColors.surface,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            _ReceivedTab(),
-            _SentTab(),
-            _MatchesTab(),
-            if (isOwner) _OwnerTab(),
+            ListTile(
+              leading: const Icon(Icons.sports_soccer, color: OnzeColors.accent),
+              title: const Text('Desafiar a otro equipo'),
+              subtitle: const Text('Partido oficial: cuenta para ELO y ranking'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                context.push(AppRoutes.sendChallenge);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.groups_outlined, color: OnzeColors.accent),
+              title: const Text('Reserva amistosa'),
+              subtitle:
+                  const Text('Partido interno de tu equipo, sin estadísticas'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                context.push(
+                  AppRoutes.sendChallenge,
+                  extra: const SendChallengeArgs(isFriendly: true),
+                );
+              },
+            ),
           ],
-        ),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () => context.push(AppRoutes.sendChallenge),
-          icon: const Icon(Icons.sports_soccer),
-          label: const Text('Desafiar'),
-          backgroundColor: OnzeColors.accent,
         ),
       ),
     );
@@ -206,7 +251,7 @@ class _MatchCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: OnzeColors.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: _myReportPending
               ? OnzeColors.error.withValues(alpha: 0.5)
@@ -219,30 +264,50 @@ class _MatchCard extends StatelessWidget {
           // Header con equipos
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-            child: Row(
-              children: [
-                _MiniTeam(
-                    name: match.teamAName, shieldUrl: match.teamAShieldUrl),
-                Expanded(
-                  child: Column(
+            child: match.isFriendly
+                ? Row(
                     children: [
-                      Text(
-                        'VS',
-                        style: GoogleFonts.inter(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w900,
-                          color: OnzeColors.textSecondary,
+                      _MiniTeam(
+                          name: match.teamAName,
+                          shieldUrl: match.teamAShieldUrl),
+                      Expanded(
+                        child: Column(
+                          children: [
+                            const _FriendlyChip(),
+                            const SizedBox(height: 4),
+                            _MatchStatusChip(status: match.status),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      _MatchStatusChip(status: match.status),
+                      const SizedBox(width: 80),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      _MiniTeam(
+                          name: match.teamAName,
+                          shieldUrl: match.teamAShieldUrl),
+                      Expanded(
+                        child: Column(
+                          children: [
+                            Text(
+                              'VS',
+                              style: GoogleFonts.barlowCondensed(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
+                                color: OnzeColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            _MatchStatusChip(status: match.status),
+                          ],
+                        ),
+                      ),
+                      _MiniTeam(
+                          name: match.teamBName,
+                          shieldUrl: match.teamBShieldUrl),
                     ],
                   ),
-                ),
-                _MiniTeam(
-                    name: match.teamBName, shieldUrl: match.teamBShieldUrl),
-              ],
-            ),
           ),
           // Info partido
           Container(
@@ -374,7 +439,7 @@ class _MatchStatusChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: _color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: _color.withValues(alpha: 0.4)),
       ),
       child: Text(
@@ -396,13 +461,36 @@ class _FinalResultChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: OnzeColors.accent.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Text(
         result.label,
         style: const TextStyle(
             fontSize: 10,
             color: OnzeColors.accent,
+            fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}
+
+class _FriendlyChip extends StatelessWidget {
+  const _FriendlyChip();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: OnzeColors.highlight.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: OnzeColors.highlight.withValues(alpha: 0.4)),
+      ),
+      child: const Text(
+        'Amistoso',
+        style: TextStyle(
+            fontSize: 10,
+            color: OnzeColors.highlight,
             fontWeight: FontWeight.w600),
       ),
     );
@@ -508,7 +596,7 @@ class _DisputeCard extends ConsumerWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: OnzeColors.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
             color: OnzeColors.warning.withValues(alpha: 0.5), width: 1.5),
       ),
@@ -612,7 +700,7 @@ class _ResolveBtn extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
           color: OnzeColors.accent.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: OnzeColors.accent.withValues(alpha: 0.4)),
         ),
         child: Text(
@@ -671,7 +759,7 @@ class _MatchRequestCard extends ConsumerWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: OnzeColors.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: OnzeColors.border),
       ),
       child: Column(
@@ -681,12 +769,18 @@ class _MatchRequestCard extends ConsumerWidget {
             children: [
               Expanded(
                 child: Text(
-                  '${request.challengerTeamName ?? '…'} vs ${request.challengedTeamName ?? '…'}',
+                  request.isFriendly
+                      ? '${request.challengerTeamName ?? '…'} · Amistoso'
+                      : '${request.challengerTeamName ?? '…'} vs ${request.challengedTeamName ?? '…'}',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
                 ),
               ),
+              if (request.isFriendly) ...[
+                const _FriendlyChip(),
+                const SizedBox(width: 6),
+              ],
               _StatusChip(
                 status: request.isExpired
                     ? MatchRequestStatus.expired

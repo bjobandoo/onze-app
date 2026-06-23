@@ -95,7 +95,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         gradient: RadialGradient(
           center: Alignment(-0.8, -0.9),
           radius: 1.3,
-          colors: [Color(0xFF002800), Colors.black],
+          colors: [OnzeColors.primary, OnzeColors.background],
           stops: [0.0, 0.65],
         ),
       ),
@@ -106,13 +106,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Image.asset(
+          'assets/images/onze_mark.png',
+          height: 64,
+          errorBuilder: (_, _, _) => const SizedBox.shrink(),
+        ),
+        const SizedBox(height: 16),
         Text(
           'ONZE',
-          style: GoogleFonts.inter(
+          style: GoogleFonts.barlowCondensed(
             fontSize: 72,
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w700,
             color: OnzeColors.textPrimary,
-            letterSpacing: -3,
+            letterSpacing: 2,
             height: 1.0,
           ),
         ),
@@ -125,7 +131,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         const SizedBox(height: 14),
         Text(
           'IBARRA · ECUADOR',
-          style: GoogleFonts.inter(
+          style: GoogleFonts.barlowCondensed(
             fontSize: 11,
             fontWeight: FontWeight.w600,
             letterSpacing: 3.0,
@@ -166,7 +172,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: OnzeColors.error.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: OnzeColors.error.withValues(alpha: 0.35)),
       ),
       child: Row(

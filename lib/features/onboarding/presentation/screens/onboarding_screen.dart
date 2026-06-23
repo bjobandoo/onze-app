@@ -161,7 +161,7 @@ class _TopBar extends StatelessWidget {
         children: [
           Text(
             'ONZE',
-            style: GoogleFonts.inter(
+            style: GoogleFonts.barlowCondensed(
               fontSize: 14,
               fontWeight: FontWeight.w800,
               letterSpacing: 3,
@@ -221,10 +221,10 @@ class _SlidePage extends StatelessWidget {
           const SizedBox(height: 40),
           Text(
             slide.title,
-            style: GoogleFonts.inter(
+            style: GoogleFonts.barlowCondensed(
               fontSize: 26,
               fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
+              letterSpacing: 0.5,
               color: OnzeColors.textPrimary,
             ),
             textAlign: TextAlign.center,
@@ -321,7 +321,7 @@ class _NextButton extends StatelessWidget {
         ),
         child: Text(
           isLast ? 'Empezar' : 'Siguiente',
-          style: GoogleFonts.inter(
+          style: GoogleFonts.barlowCondensed(
             fontSize: 15,
             fontWeight: FontWeight.w700,
             color: OnzeColors.background,

@@ -79,7 +79,7 @@ class _TeamsScreenState extends ConsumerState<TeamsScreen> {
               userAsync.valueOrNull?.id ?? '';
 
           return ListView.separated(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 120),
             itemCount: teams.length + 1,
             separatorBuilder: (_, _) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
@@ -153,7 +153,7 @@ class _CreateTeamButton extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: OnzeColors.surface,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(
               color: OnzeColors.accent.withValues(alpha: 0.4)),
         ),

@@ -147,7 +147,7 @@ class _InfoBanner extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: OnzeColors.accent.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: OnzeColors.accent.withValues(alpha: 0.3),
         ),

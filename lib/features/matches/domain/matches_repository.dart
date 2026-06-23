@@ -20,6 +20,17 @@ abstract class MatchesRepository {
     required double price,
   });
 
+  /// Crea una reserva amistosa: el capitán de [teamId] solicita la cancha al
+  /// dueño como un solo equipo (sin rival). Pasa directo a [pending_owner].
+  Future<MatchRequest> createFriendlyBooking({
+    required String teamId,
+    required String fieldId,
+    required DateTime date,
+    required TimeOfDay startTime,
+    required TimeOfDay endTime,
+    required double price,
+  });
+
   /// Retorna solicitudes donde el usuario es el equipo desafiador.
   Future<List<MatchRequest>> getChallengesAsChallenger(
       List<String> teamIds);

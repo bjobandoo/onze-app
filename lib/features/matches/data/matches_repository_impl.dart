@@ -56,6 +56,46 @@ class MatchesRepositoryImpl implements MatchesRepository {
   }
 
   @override
+  Future<MatchRequest> createFriendlyBooking({
+    required String teamId,
+    required String fieldId,
+    required DateTime date,
+    required TimeOfDay startTime,
+    required TimeOfDay endTime,
+    required double price,
+  }) async {
+    try {
+      // RPC con validación en servidor: capitán, suspensiones y solapamiento.
+      // Deja la solicitud en pending_owner con bloqueo de 45 min.
+      final requestId = await supabase.rpc('create_friendly_booking', params: {
+        'p_team_id': teamId,
+        'p_field_id': fieldId,
+        'p_date': _fmtDate(date),
+        'p_start': _fmtTime(startTime),
+        'p_end': _fmtTime(endTime),
+        'p_price': price,
+      }) as String;
+
+      final row = await supabase
+          .from('match_requests')
+          .select(_matchRequestSelect)
+          .eq('id', requestId)
+          .single();
+
+      log.i('Reserva amistosa creada: $requestId');
+      return MatchRequest.fromMap(row);
+    } on sb.PostgrestException catch (e) {
+      log.e('Error al crear reserva amistosa', error: e);
+      final msg = e.message.contains('reservado')
+          ? 'Ese horario ya está reservado.'
+          : e.message.contains('suspendid')
+              ? 'No puedes reservar: hay una suspensión activa.'
+              : 'No se pudo crear la reserva amistosa.';
+      throw DatabaseException(msg, code: e.code);
+    }
+  }
+
+  @override
   Future<List<MatchRequest>> getChallengesAsChallenger(
       List<String> teamIds) async {
     if (teamIds.isEmpty) return [];
@@ -110,30 +150,28 @@ class MatchesRepositoryImpl implements MatchesRepository {
 
   @override
   Future<void> acceptChallenge(String matchRequestId) async {
-    final blockedUntil =
-        DateTime.now().toUtc().add(const Duration(minutes: 45));
     try {
-      await supabase.from('match_requests').update({
-        'status': 'pending_owner',
-        'blocked_until': blockedUntil.toIso8601String(),
-        'opponent_responded_at': DateTime.now().toUtc().toIso8601String(),
-      }).eq('id', matchRequestId);
-
-      log.i('Desafío $matchRequestId aceptado (bloqueo hasta $blockedUntil)');
+      // RPC con validación en servidor: estado, capitán, suspensiones y
+      // solapamiento de horario (migración 026).
+      await supabase.rpc('accept_challenge',
+          params: {'p_match_request_id': matchRequestId});
+      log.i('Desafío $matchRequestId aceptado (bloqueo de 45 min)');
     } on sb.PostgrestException catch (e) {
       log.e('Error al aceptar desafío', error: e);
-      throw DatabaseException('No se pudo aceptar el desafío.', code: e.code);
+      final msg = e.message.contains('reservado')
+          ? 'Ese horario ya está reservado por otro partido.'
+          : e.message.contains('suspendid')
+              ? 'No puedes aceptar: hay una suspensión activa.'
+              : 'No se pudo aceptar el desafío.';
+      throw DatabaseException(msg, code: e.code);
     }
   }
 
   @override
   Future<void> rejectChallenge(String matchRequestId) async {
     try {
-      await supabase.from('match_requests').update({
-        'status': 'rejected',
-        'opponent_responded_at': DateTime.now().toUtc().toIso8601String(),
-      }).eq('id', matchRequestId);
-
+      await supabase.rpc('reject_challenge',
+          params: {'p_match_request_id': matchRequestId});
       log.i('Desafío $matchRequestId rechazado por capitán');
     } on sb.PostgrestException catch (e) {
       log.e('Error al rechazar desafío', error: e);
@@ -144,11 +182,8 @@ class MatchesRepositoryImpl implements MatchesRepository {
   @override
   Future<void> cancelChallenge(String matchRequestId) async {
     try {
-      await supabase.from('match_requests').update({
-        'status': 'cancelled',
-        'challenger_responded_at': DateTime.now().toUtc().toIso8601String(),
-      }).eq('id', matchRequestId);
-
+      await supabase.rpc('cancel_challenge',
+          params: {'p_match_request_id': matchRequestId});
       log.i('Desafío $matchRequestId cancelado por desafiador');
     } on sb.PostgrestException catch (e) {
       log.e('Error al cancelar desafío', error: e);
@@ -174,11 +209,8 @@ class MatchesRepositoryImpl implements MatchesRepository {
   @override
   Future<void> rejectMatchByOwner(String matchRequestId) async {
     try {
-      await supabase.from('match_requests').update({
-        'status': 'rejected',
-        'owner_responded_at': DateTime.now().toUtc().toIso8601String(),
-      }).eq('id', matchRequestId);
-
+      await supabase.rpc('reject_match_by_owner',
+          params: {'p_match_request_id': matchRequestId});
       log.i('Reserva $matchRequestId rechazada por dueño');
     } on sb.PostgrestException catch (e) {
       log.e('Error al rechazar reserva', error: e);
@@ -209,13 +241,16 @@ class MatchesRepositoryImpl implements MatchesRepository {
 
       if (schedules.isEmpty) return [];
 
-      // Slots ya reservados para esa fecha (activos o confirmados)
+      // Slots ya reservados para esa fecha. Un desafío aún no aceptado
+      // (pending_opponent) NO bloquea el horario: el bloqueo real empieza
+      // con la aceptación (pending_owner, 45 min) y el servidor revalida
+      // conflictos en accept_challenge/confirm_match.
       final bookedRows = await supabase
           .from('match_requests')
           .select('requested_start_time, requested_end_time')
           .eq('field_id', fieldId)
           .eq('requested_date', dateStr)
-          .inFilter('status', ['pending_opponent', 'pending_owner', 'confirmed']);
+          .inFilter('status', ['pending_owner', 'confirmed']);
 
       final booked = bookedRows.map((r) {
         final parts0 = (r['requested_start_time'] as String).split(':');

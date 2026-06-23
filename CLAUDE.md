@@ -12,41 +12,55 @@ El plan completo del proyecto vive en `docs/plan.md`. Ese documento es la fuente
 
 ---
 
-## 2. Identidad visual
+## 2. Identidad visual — "Stadium Night"
+
+Estilo elegido a partir de los prototipos de Claude Design (handoff junio 2026): verde césped sobre carbón verdoso, superficies suaves, radios generosos, acciones en forma de píldora y dock flotante de navegación.
 
 ### Paleta de colores oficial
 
-| Uso | Color | Hex |
+| Uso | Token (`OnzeColors`) | Hex |
 |---|---|---|
-| Fondo principal (modo oscuro) | Negro | `#000000` |
-| Superficies secundarias, cards, inputs | Grafito | `#3A3A3C` |
-| Color primario de marca | Verde oscuro | `#004101` |
-| Acento principal, botones primarios | Verde medio | `#008001` |
-| Acento brillante, estados activos, highlights | Verde brillante | `#00BF00` |
+| Fondo principal (negro puro) | `background` | `#000000` |
+| Superficies: cards, sheets | `surface` | `#151B14` |
+| Superficie elevada: inputs, cards destacadas | `surfaceHigh` | `#1B221A` |
+| Marca / fondos teñidos (banners, fills) | `primary` | `#1A3615` |
+| Acento verde césped: CTAs, estados activos | `accent` / `highlight` | `#3BDC1E` |
+| Texto/íconos sobre verde | `onAccent` | `#0A0F09` |
+| Texto principal | `textPrimary` | `#EDF3EC` |
+| Texto secundario | `textSecondary` | `#EDF3EC` al 55% |
+| Texto apagado | `textDim` | `#EDF3EC` al 32% |
+| Borde sutil (cards, inputs) | `border` | blanco al 7% |
+| Tinte verde 14% (glows, fondos activos) | `greenGlow` | `#3BDC1E` al 14% |
 
 ### Reglas de uso del color
 
-- Onze es una app con tema oscuro primero. El fondo base siempre es `#000000` o superficies en `#3A3A3C`.
-- El verde brillante `#00BF00` se usa con moderación: estados activos, notificaciones, badges, CTAs principales. Nunca llenar pantallas con él.
+- Onze es una app con tema oscuro primero. El fondo base siempre es negro puro `#000000` con superficies en verde carbón `#151B14`/`#1B221A`.
+- El verde césped `#3BDC1E` se usa con moderación: estados activos, badges, CTAs, etiquetas de sección. Nunca llenar pantallas con él.
+- Sobre cualquier relleno verde, el texto y los íconos van en `onAccent` (`#0A0F09`), nunca en blanco.
 - Para estados de error usar un rojo estándar (`#FF3B30`), para advertencias amarillo (`#FFCC00`). Las tarjetas amarillas del sistema de sanciones usan `#FFCC00` y las rojas `#FF3B30`.
-- Texto principal blanco puro `#FFFFFF`, texto secundario gris claro `#EBEBF5` con 60% de opacidad.
 - Nunca usar colores fuera de esta paleta sin consultar primero.
 
 ### Tipografía
 
-- **Fuente principal:** Inter (Google Fonts, importada vía paquete `google_fonts`)
-- **Jerarquía:**
-  - Display (títulos grandes de pantalla): 28sp, weight 700
-  - Heading (títulos de sección): 20sp, weight 600
-  - Body (texto corriente): 16sp, weight 400
-  - Caption (metadatos, timestamps): 13sp, weight 400
-  - Button: 15sp, weight 600
+- **Display:** Barlow Condensed (Google Fonts, vía `google_fonts`) — títulos, números grandes, etiquetas, botones.
+- **Cuerpo:** Barlow — texto corriente, metadatos.
+- **Jerarquía** (tokens en `TextTheme`):
+  - Display (`displayLarge`): Barlow Condensed 30sp, weight 700
+  - Heading L (`headlineLarge`): Barlow Condensed 24sp, weight 700
+  - Heading M (`headlineMedium`): Barlow Condensed 19sp, weight 600
+  - Body (`bodyLarge`/`bodyMedium`): Barlow 16/14sp, weight 400
+  - Caption (`bodySmall`): Barlow 13sp, weight 400
+  - Button (`labelLarge`): Barlow Condensed 16sp, weight 700, ls 0.8 — labels en MAYÚSCULAS (lo aplica `OnzeButton`)
+  - Etiqueta de sección (`labelSmall`): Barlow Condensed 13sp, weight 600, ls 2.2, color verde acento
+- Números (ELO, marcadores, posiciones) siempre en Barlow Condensed bold.
 
 ### Espaciado y bordes
 
 - Sistema de 4pt: todos los paddings y márgenes son múltiplos de 4 (4, 8, 12, 16, 24, 32, 48).
-- Border radius estándar: 12dp para cards, 8dp para botones, 24dp para chips y badges.
-- Cards elevadas: sin sombra fuerte, usar borde sutil `#3A3A3C` de 1px o fondo ligeramente más claro que el fondo base.
+- Border radius estándar (constantes en `OnzeTheme`): 22dp cards (`radiusCard`), 18dp filas de lista (`radiusRow`), 16dp inputs (`radiusInput`), 24dp diálogos (`radiusDialog`), 28dp top de bottom sheets (`radiusSheet`). Botones, chips y dock son píldoras completas (`StadiumBorder` / `radiusPill`).
+- Cards: sin sombra fuerte, borde sutil blanco al 7% (`OnzeColors.border`) de 1px.
+- Navegación principal: dock flotante (`OnzeDock`, `shared/widgets/onze_dock.dart`) con 5 pestañas (Inicio, Canchas, Equipo, Ranking, Perfil) montado por `OnzeShell` sobre un `StatefulShellRoute`. Las pantallas de pestaña necesitan padding inferior ≥ 120 para que el contenido no quede bajo el dock; las pantallas de detalle viven fuera del shell y lo cubren.
+- Animaciones: tokens en `OnzeMotion` (`core/theme/onze_motion.dart`) — 140ms micro-interacciones, 240ms componentes, 340ms entradas/páginas; curvas `easeOutCubic` (entrada), `easeInCubic` (salida), `easeInOutCubic` (cambios de tamaño). Las transiciones de página son globales vía `PageTransitionsTheme`; el feedback de press se da con `OnzePressable`.
 
 ---
 
@@ -357,17 +371,17 @@ supabase functions deploy <nombre>  # despliega edge function
 
 ## 11. Variables de entorno
 
-Las variables sensibles viven en `.env` (nunca commiteado) y se cargan con `flutter_dotenv`.
+**Importante:** el `.env` se empaqueta dentro del APK como asset de `flutter_dotenv`. Por eso SOLO puede contener claves públicas de cliente. Las credenciales de servidor NUNCA van en `.env`.
+
+`.env` (cliente, nunca commiteado, se empaqueta en la app):
 
 ```
 SUPABASE_URL=
 SUPABASE_ANON_KEY=
-FCM_SERVER_KEY=
-TWILIO_ACCOUNT_SID=
-TWILIO_AUTH_TOKEN=
-TWILIO_VERIFY_SERVICE_SID=
 ENVIRONMENT=development  # development | staging | production
 ```
+
+Credenciales de servidor (Twilio, Firebase service account, service_role key): viven como secrets en Supabase (`supabase secrets set ...` para edge functions; Twilio se configura en Dashboard → Authentication → Providers → Phone). Para referencia local del equipo existe `.env.server` (gitignored y nunca empaquetado).
 
 Existe un `.env.example` con las keys pero sin valores, ese sí se commitea.
 

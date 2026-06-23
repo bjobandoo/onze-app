@@ -251,7 +251,7 @@ class _RegisterFieldScreenState extends ConsumerState<RegisterFieldScreen> {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: OnzeColors.surface,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(color: OnzeColors.accent.withValues(alpha: 0.4)),
             ),
             child: Row(
@@ -338,7 +338,7 @@ class _PhotoThumbnail extends StatelessWidget {
           height: 100,
           margin: const EdgeInsets.only(right: 8),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(12),
             color: OnzeColors.surface,
           ),
           clipBehavior: Clip.antiAlias,
@@ -380,7 +380,7 @@ class _AddPhotoButton extends StatelessWidget {
         height: 100,
         decoration: BoxDecoration(
           color: OnzeColors.surface,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
               color: OnzeColors.accent.withValues(alpha: 0.4),
               style: BorderStyle.solid),

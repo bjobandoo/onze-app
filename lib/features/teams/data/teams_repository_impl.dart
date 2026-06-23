@@ -401,10 +401,12 @@ class TeamsRepositoryImpl implements TeamsRepository {
 
     final term = query.trim().toLowerCase();
     try {
+      // Sin phone: ya no es legible desde el cliente (migración 026) y
+      // buscar por teléfono permitía enumerar números ajenos.
       final rows = await supabase
           .from('users')
-          .select('id, full_name, username, phone, avatar_url, is_suspended, roles')
-          .or('username.ilike.%$term%,phone.ilike.%$term%')
+          .select('id, full_name, username, avatar_url, is_suspended, roles')
+          .or('username.ilike.%$term%,full_name.ilike.%$term%')
           .neq('id', excludeUserId)
           .limit(20);
 

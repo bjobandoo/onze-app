@@ -7,9 +7,8 @@ import 'package:latlong2/latlong.dart';
 
 import '../../../../core/theme/onze_colors.dart';
 import '../../domain/models/field.dart';
-import '../../domain/models/field_schedule.dart';
 import '../providers/fields_providers.dart';
-import '../widgets/field_reviews_section.dart';
+import '../widgets/field_detail_sheet.dart';
 
 /// Centro de Ibarra, Ecuador.
 const _ibarraCenter = LatLng(0.3516, -78.1221);
@@ -38,15 +37,7 @@ class _FieldsMapScreenState extends ConsumerState<FieldsMapScreen> {
       LatLng(field.latitude, field.longitude),
       16.0,
     );
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: OnzeColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (_) => _FieldBottomSheet(field: field),
-    );
+    showFieldDetailSheet(context, field);
   }
 
   @override
@@ -192,7 +183,7 @@ class _EmptyOverlay extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: OnzeColors.surface.withValues(alpha: 0.92),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(18),
           ),
           child: Text(
             'Aún no hay canchas verificadas en Ibarra.\nVuelve pronto.',
@@ -201,278 +192,6 @@ class _EmptyOverlay extends StatelessWidget {
                 ),
             textAlign: TextAlign.center,
           ),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Panel inferior de la cancha
-// ---------------------------------------------------------------------------
-
-class _FieldBottomSheet extends ConsumerWidget {
-  const _FieldBottomSheet({required this.field});
-  final Field field;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final schedulesAsync = ref.watch(fieldSchedulesProvider(field.id));
-
-    return DraggableScrollableSheet(
-      initialChildSize: 0.45,
-      minChildSize: 0.3,
-      maxChildSize: 0.85,
-      expand: false,
-      builder: (_, controller) => ListView(
-        controller: controller,
-        padding: EdgeInsets.zero,
-        children: [
-          _buildHandle(),
-          _buildPhoto(),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(context),
-                const SizedBox(height: 4),
-                Text(
-                  field.address,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: OnzeColors.textSecondary,
-                      ),
-                ),
-                const SizedBox(height: 16),
-                _buildSchedulesSection(context, schedulesAsync),
-                const SizedBox(height: 20),
-                const Divider(color: OnzeColors.border, height: 1),
-                const SizedBox(height: 16),
-                FieldReviewsSection(field: field),
-                const SizedBox(height: 24),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHandle() {
-    return Center(
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 10),
-        width: 36,
-        height: 4,
-        decoration: BoxDecoration(
-          color: OnzeColors.border,
-          borderRadius: BorderRadius.circular(2),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPhoto() {
-    final url = field.firstPhotoUrl;
-    return ClipRRect(
-      borderRadius: BorderRadius.zero,
-      child: SizedBox(
-        height: 160,
-        width: double.infinity,
-        child: url != null
-            ? Image.network(
-                url,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => _PhotoPlaceholder(),
-              )
-            : _PhotoPlaceholder(),
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            field.name,
-            style: Theme.of(context)
-                .textTheme
-                .bodyLarge
-                ?.copyWith(fontWeight: FontWeight.w600),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: OnzeColors.primary,
-            borderRadius: BorderRadius.circular(24),
-          ),
-          child: Text(
-            field.fieldType.label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: OnzeColors.highlight,
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSchedulesSection(
-    BuildContext context,
-    AsyncValue<List<FieldSchedule>> schedulesAsync,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Horarios disponibles',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-        ),
-        const SizedBox(height: 8),
-        schedulesAsync.when(
-          loading: () => const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Center(
-                child: CircularProgressIndicator(strokeWidth: 2)),
-          ),
-          error: (_, _) => Text(
-            'No se pudieron cargar los horarios.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: OnzeColors.error,
-                ),
-          ),
-          data: (schedules) {
-            final active =
-                schedules.where((s) => s.isActive).toList();
-            if (active.isEmpty) {
-              return Text(
-                'Esta cancha no tiene horarios configurados aún.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: OnzeColors.textSecondary,
-                    ),
-              );
-            }
-
-            // Agrupar por día y ordenar por hora de inicio
-            final Map<int, List<FieldSchedule>> byDay = {};
-            for (final s in active) {
-              byDay.putIfAbsent(s.dayOfWeek, () => []).add(s);
-            }
-            for (final day in byDay.keys) {
-              byDay[day]!.sort((a, b) {
-                final aMin = a.startTime.hour * 60 + a.startTime.minute;
-                final bMin = b.startTime.hour * 60 + b.startTime.minute;
-                return aMin.compareTo(bMin);
-              });
-            }
-
-            return Column(
-              children: [
-                for (final day in kDayOrder)
-                  if (byDay.containsKey(day)) ...[
-                    _DayScheduleRow(
-                      dayName: kDayNames[day],
-                      schedules: byDay[day]!,
-                    ),
-                  ],
-              ],
-            );
-          },
-        ),
-      ],
-    );
-  }
-}
-
-class _DayScheduleRow extends StatelessWidget {
-  const _DayScheduleRow({
-    required this.dayName,
-    required this.schedules,
-  });
-
-  final String dayName;
-  final List<FieldSchedule> schedules;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 90,
-            child: Text(
-              dayName,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: OnzeColors.textSecondary,
-                    fontWeight: FontWeight.w500,
-                  ),
-            ),
-          ),
-          Expanded(
-            child: Wrap(
-              spacing: 6,
-              runSpacing: 4,
-              children: schedules
-                  .map(
-                    (s) => Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: OnzeColors.primary,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: RichText(
-                        text: TextSpan(
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(fontSize: 11),
-                          children: [
-                            TextSpan(
-                              text: s.timeRange,
-                              style: const TextStyle(
-                                  color: OnzeColors.highlight),
-                            ),
-                            TextSpan(
-                              text: '  \$${s.price.toStringAsFixed(0)}',
-                              style: const TextStyle(
-                                color: OnzeColors.warning,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  )
-                  .toList(),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PhotoPlaceholder extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: OnzeColors.surface,
-      child: const Center(
-        child: Icon(
-          Icons.sports_soccer,
-          size: 48,
-          color: OnzeColors.textSecondary,
         ),
       ),
     );

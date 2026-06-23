@@ -67,7 +67,7 @@ class _UserSearchScreenState extends ConsumerState<UserSearchScreen> {
       BuildContext context, WidgetRef ref, UserSearchState state) {
     if (state.isEmpty) {
       return const _HintView(
-        message: 'Busca por @usuario o número de teléfono.',
+        message: 'Busca por @usuario o nombre.',
       );
     }
 
@@ -81,7 +81,7 @@ class _UserSearchScreenState extends ConsumerState<UserSearchScreen> {
 
     if (state.results.isEmpty) {
       return const _HintView(
-          message: 'No se encontraron jugadores con ese usuario o teléfono.');
+          message: 'No se encontraron jugadores con ese usuario o nombre.');
     }
 
     return ListView.separated(
@@ -98,7 +98,6 @@ class _UserSearchScreenState extends ConsumerState<UserSearchScreen> {
           avatarUrl: user.avatarUrl,
           fullName: user.fullName,
           username: user.username,
-          phone: user.phone,
           isMember: isMember,
           isInvited: isInvited,
           onInvite: isMember || isInvited
@@ -133,7 +132,7 @@ class _SearchField extends StatelessWidget {
       onChanged: onChanged,
       style: Theme.of(context).textTheme.bodyLarge,
       decoration: InputDecoration(
-        hintText: '@usuario o teléfono…',
+        hintText: '@usuario o nombre…',
         hintStyle: Theme.of(context)
             .textTheme
             .bodyLarge
@@ -158,7 +157,6 @@ class _UserResultTile extends StatelessWidget {
     required this.avatarUrl,
     required this.fullName,
     required this.username,
-    required this.phone,
     required this.isMember,
     required this.isInvited,
     required this.onInvite,
@@ -167,15 +165,13 @@ class _UserResultTile extends StatelessWidget {
   final String? avatarUrl;
   final String fullName;
   final String? username;
-  final String phone;
   final bool isMember;
   final bool isInvited;
   final VoidCallback? onInvite;
 
   String get _subtitle {
     if (username != null && username!.isNotEmpty) return '@$username';
-    if (phone.startsWith('+593')) return '0${phone.substring(4)}';
-    return phone;
+    return '';
   }
 
   @override

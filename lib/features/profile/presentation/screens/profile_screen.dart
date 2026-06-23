@@ -102,7 +102,7 @@ class _ProfileContent extends StatelessWidget {
                 _buildBioSection(context),
                 const SizedBox(height: 28),
                 _buildAccountSection(context),
-                const SizedBox(height: 40),
+                const SizedBox(height: 120),
               ],
             ),
           ),
@@ -119,7 +119,7 @@ class _ProfileContent extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF092009), Color(0xFF000000)],
+          colors: [OnzeColors.primary, OnzeColors.background],
           stops: [0.0, 0.85],
         ),
       ),
@@ -157,10 +157,10 @@ class _ProfileContent extends StatelessWidget {
       children: [
         Text(
           user.fullName.toUpperCase(),
-          style: GoogleFonts.inter(
+          style: GoogleFonts.barlowCondensed(
             fontSize: 20,
             fontWeight: FontWeight.w900,
-            letterSpacing: -0.5,
+            letterSpacing: 0.5,
             color: OnzeColors.textPrimary,
           ),
           maxLines: 2,
@@ -210,7 +210,7 @@ class _ProfileContent extends StatelessWidget {
             ),
             child: Text(
               'SUSPENDIDO',
-              style: GoogleFonts.inter(
+              style: GoogleFonts.barlowCondensed(
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.5,
@@ -325,7 +325,7 @@ class _ProfileContent extends StatelessWidget {
                     horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
                   color: OnzeColors.surfaceHigh,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(18),
                   border: Border.all(
                     color: user.isSuspended
                         ? OnzeColors.error.withValues(alpha: 0.4)
@@ -359,6 +359,13 @@ class _ProfileContent extends StatelessWidget {
               ),
             ),
           ),
+        OnzeButton(
+          label: 'Mi historial de partidos',
+          icon: Icons.history,
+          variant: OnzeButtonVariant.outline,
+          onPressed: () => context.push(AppRoutes.matchHistory),
+        ),
+        const SizedBox(height: 10),
         OnzeButton(
           label: 'Mis logros',
           icon: Icons.emoji_events_outlined,
@@ -412,7 +419,7 @@ class _DataCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: OnzeColors.surfaceHigh,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(18),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(

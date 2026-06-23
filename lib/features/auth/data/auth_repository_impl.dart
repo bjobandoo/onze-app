@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 
+import '../../../core/config/app_config.dart';
 import '../../../core/errors/onze_exception.dart';
 import '../../../core/utils/logger.dart';
 import '../../../shared/models/app_user.dart';
@@ -20,14 +21,23 @@ class AuthRepositoryImpl implements AuthRepository {
       await supabase.auth.signInWithOtp(phone: phone);
       log.i('OTP enviado correctamente a $phone');
     } on sb.AuthException catch (e) {
-      // DEV BYPASS: Twilio no disponible — ignorar error y continuar al flujo OTP.
-      // TODO: Eliminar este catch cuando Twilio esté funcionando.
-      log.w('DEV BYPASS sendOtp: Twilio falló (${e.message}), continuando igual');
+      // DEV BYPASS (solo ENVIRONMENT=development): Twilio no disponible —
+      // se ignora el error para poder continuar al flujo OTP en desarrollo.
+      // TODO: Eliminar el bypass cuando Twilio esté funcionando.
+      if (AppConfig.isDevelopment) {
+        log.w('DEV BYPASS sendOtp: Twilio falló (${e.message}), continuando');
+        return;
+      }
+      log.e('Error al enviar OTP', error: e);
+      throw AuthException(_mapAuthMessage(e.message), code: e.statusCode);
     } catch (e, st) {
-      // DEV BYPASS: idem.
-      // TODO: Eliminar este catch cuando Twilio esté funcionando.
-      log.w('DEV BYPASS sendOtp: error inesperado, continuando igual',
-          error: e, stackTrace: st);
+      if (AppConfig.isDevelopment) {
+        log.w('DEV BYPASS sendOtp: error inesperado, continuando',
+            error: e, stackTrace: st);
+        return;
+      }
+      log.e('Error inesperado al enviar OTP', error: e, stackTrace: st);
+      throw const NetworkException('Error de conexión. Intenta nuevamente.');
     }
   }
 
@@ -36,11 +46,12 @@ class AuthRepositoryImpl implements AuthRepository {
     required String phone,
     required String otpCode,
   }) async {
-    // DEV BYPASS: intentar verificación real; si falla (Twilio no disponible),
-    // crear sesión anónima para poder navegar en la app.
+    // DEV BYPASS (solo ENVIRONMENT=development): si la verificación falla
+    // (Twilio no disponible), se crea una sesión anónima para poder navegar.
     // Requiere "Anonymous Sign In" activado en Supabase Dashboard →
-    // Authentication → Providers → Anonymous Sign In.
-    // TODO: Eliminar el bloque catch cuando Twilio esté funcionando.
+    // Authentication → Providers. En staging/producción ese proveedor debe
+    // estar DESACTIVADO y este bypass nunca se ejecuta.
+    // TODO: Eliminar el bypass cuando Twilio esté funcionando.
     try {
       log.d('Verificando OTP para $phone');
       final response = await supabase.auth.verifyOTP(
@@ -55,9 +66,22 @@ class AuthRepositoryImpl implements AuthRepository {
 
       log.i('OTP verificado — userId: ${response.user!.id}');
       return await _isNewUser(response.user!.id);
-    } catch (e) {
-      log.w('DEV BYPASS verifyOtp: OTP falló ($e), usando sesión anónima');
-      return await _signInAnonymouslyAndCheckProfile();
+    } on sb.AuthException catch (e) {
+      if (AppConfig.isDevelopment) {
+        log.w('DEV BYPASS verifyOtp: OTP falló (${e.message}), sesión anónima');
+        return await _signInAnonymouslyAndCheckProfile();
+      }
+      log.e('Error al verificar OTP', error: e);
+      throw AuthException(_mapAuthMessage(e.message), code: e.statusCode);
+    } on OnzeException {
+      rethrow;
+    } catch (e, st) {
+      if (AppConfig.isDevelopment) {
+        log.w('DEV BYPASS verifyOtp: error inesperado ($e), sesión anónima');
+        return await _signInAnonymouslyAndCheckProfile();
+      }
+      log.e('Error inesperado al verificar OTP', error: e, stackTrace: st);
+      throw const NetworkException('Error de conexión. Intenta nuevamente.');
     }
   }
 
@@ -170,13 +194,19 @@ class AuthRepositoryImpl implements AuthRepository {
     if (sbUser == null) return null;
 
     try {
+      // Columnas explícitas: phone/email/fcm_token ya no son legibles desde
+      // el cliente (grants por columna, migración 026). El teléfono propio
+      // se obtiene de la sesión de auth.
       final data = await supabase
           .from('users')
-          .select()
+          .select('id, full_name, username, avatar_url, created_at, '
+              'is_suspended, suspension_until, suspension_level, '
+              'yellow_cards_count, roles')
           .eq('id', sbUser.id)
           .maybeSingle();
 
       if (data == null) return null;
+      data['phone'] = _normalizePhone(sbUser.phone);
       return AppUser.fromMap(data);
     } on sb.PostgrestException catch (e) {
       log.e('Error al obtener usuario actual', error: e);
@@ -187,6 +217,12 @@ class AuthRepositoryImpl implements AuthRepository {
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
+
+  /// Supabase Auth guarda el teléfono sin el prefijo '+'.
+  String _normalizePhone(String? phone) {
+    if (phone == null || phone.isEmpty) return '';
+    return phone.startsWith('+') ? phone : '+$phone';
+  }
 
   String _mapAuthMessage(String raw) {
     if (raw.contains('Invalid') || raw.contains('invalid')) {

@@ -200,7 +200,7 @@ class _ScheduleCard extends ConsumerWidget {
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: OnzeColors.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: schedule.isActive
               ? OnzeColors.border
@@ -648,7 +648,7 @@ class _ScheduleFormSheetState extends ConsumerState<_ScheduleFormSheet> {
               labelText: 'Precio por bloque (USD)',
               prefixText: '\$',
               border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8)),
+                  borderRadius: BorderRadius.circular(12)),
               filled: true,
               fillColor: OnzeColors.background,
             ),
@@ -674,7 +674,7 @@ class _ScheduleFormSheetState extends ConsumerState<_ScheduleFormSheet> {
               backgroundColor: OnzeColors.accent,
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
+                  borderRadius: BorderRadius.circular(12)),
             ),
             child: notifierState.isLoading
                 ? const SizedBox(
@@ -743,7 +743,7 @@ class _DayChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
           color: bg,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: borderColor),
         ),
         child: Text(
@@ -781,12 +781,12 @@ class _TimeTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         decoration: BoxDecoration(
           border: Border.all(color: OnzeColors.border),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
           color: OnzeColors.background,
         ),
         child: Column(

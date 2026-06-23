@@ -10,10 +10,31 @@ import '../../../../features/fields/domain/models/field.dart';
 import '../../../../features/fields/domain/models/field_schedule.dart';
 import '../../../../features/fields/presentation/providers/fields_providers.dart';
 import '../../../../features/teams/domain/models/team.dart';
+import '../../../../shared/widgets/onze_select_chip.dart';
 import '../providers/matches_providers.dart';
 
+/// Datos precargados para el formulario de desafío — usados al llegar
+/// desde el detalle de una cancha (cancha sola, o cancha + fecha + horario).
+class SendChallengeArgs {
+  const SendChallengeArgs({
+    this.fieldId,
+    this.date,
+    this.scheduleId,
+    this.isFriendly = false,
+  });
+
+  final String? fieldId;
+  final DateTime? date;
+  final String? scheduleId;
+
+  /// Abre el formulario directamente en modo reserva amistosa.
+  final bool isFriendly;
+}
+
 class SendChallengeScreen extends ConsumerStatefulWidget {
-  const SendChallengeScreen({super.key});
+  const SendChallengeScreen({super.key, this.args = const SendChallengeArgs()});
+
+  final SendChallengeArgs args;
 
   @override
   ConsumerState<SendChallengeScreen> createState() =>
@@ -26,10 +47,18 @@ class _SendChallengeScreenState extends ConsumerState<SendChallengeScreen> {
   DateTime? _date;
   FieldSchedule? _slot;
   Team? _opponent;
+  late bool _isFriendly;
+
+  /// Horario a auto-seleccionar cuando carguen los slots disponibles.
+  String? _pendingSlotId;
 
   @override
   void initState() {
     super.initState();
+    _isFriendly = widget.args.isFriendly;
+    _fieldId = widget.args.fieldId;
+    _date = widget.args.date;
+    _pendingSlotId = widget.args.scheduleId;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.invalidate(verifiedFieldsProvider);
       ref.invalidate(myCaptainTeamsProvider);
@@ -39,7 +68,8 @@ class _SendChallengeScreenState extends ConsumerState<SendChallengeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Enviar desafío')),
+      appBar: AppBar(
+          title: Text(_isFriendly ? 'Reservar amistoso' : 'Enviar desafío')),
       body: _buildGuardedBody(context, ref),
     );
   }
@@ -80,7 +110,9 @@ class _SendChallengeScreenState extends ConsumerState<SendChallengeScreen> {
 
     final captainTeamsAsync = ref.watch(myCaptainTeamsProvider);
     final fieldsAsync = ref.watch(verifiedFieldsProvider);
-    final sendState = ref.watch(sendChallengeProvider);
+    final sendState = _isFriendly
+        ? ref.watch(createFriendlyProvider)
+        : ref.watch(sendChallengeProvider);
 
     return captainTeamsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator(color: OnzeColors.accent)),
@@ -88,7 +120,7 @@ class _SendChallengeScreenState extends ConsumerState<SendChallengeScreen> {
         data: (captainTeams) {
           if (captainTeams.isEmpty) {
             return _errorText(
-                context, 'Necesitas ser capitán de un equipo para desafiar.');
+                context, 'Necesitas ser capitán de un equipo para reservar.');
           }
           // Auto-seleccionar si solo hay un equipo
           if (_myTeam == null && captainTeams.length == 1) {
@@ -109,6 +141,33 @@ class _SendChallengeScreenState extends ConsumerState<SendChallengeScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 40),
       children: [
+        _sectionLabel(context, 'Tipo de partido'),
+        Row(
+          children: [
+            OnzeSelectChip(
+              label: 'Desafío',
+              isSelected: !_isFriendly,
+              onTap: () => setState(() => _isFriendly = false),
+            ),
+            const SizedBox(width: 8),
+            OnzeSelectChip(
+              label: 'Amistoso',
+              isSelected: _isFriendly,
+              onTap: () => setState(() => _isFriendly = true),
+            ),
+          ],
+        ),
+        if (_isFriendly)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              'Reserva interna de tu equipo. No registra estadísticas ni ELO.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: OnzeColors.textSecondary,
+                  ),
+            ),
+          ),
+        const SizedBox(height: 20),
         _sectionLabel(context, 'Mi equipo'),
         _TeamSelector(
           teams: captainTeams,
@@ -130,6 +189,7 @@ class _SendChallengeScreenState extends ConsumerState<SendChallengeScreen> {
             onSelected: (id) => setState(() {
               _fieldId = id;
               _slot = null;
+              _pendingSlotId = null;
             }),
           ),
         ),
@@ -140,6 +200,7 @@ class _SendChallengeScreenState extends ConsumerState<SendChallengeScreen> {
           onSelected: (d) => setState(() {
             _date = d;
             _slot = null;
+            _pendingSlotId = null;
           }),
         ),
         if (_fieldId != null && _date != null) ...[
@@ -149,16 +210,22 @@ class _SendChallengeScreenState extends ConsumerState<SendChallengeScreen> {
             fieldId: _fieldId!,
             date: _date!,
             selected: _slot,
-            onSelected: (s) => setState(() => _slot = s),
+            autoSelectId: _pendingSlotId,
+            onSelected: (s) => setState(() {
+              _slot = s;
+              _pendingSlotId = null;
+            }),
           ),
         ],
-        const SizedBox(height: 20),
-        _sectionLabel(context, 'Equipo rival'),
-        _OpponentSearch(
-          excludeTeamId: _myTeam?.id ?? '',
-          selected: _opponent,
-          onSelected: (t) => setState(() => _opponent = t),
-        ),
+        if (!_isFriendly) ...[
+          const SizedBox(height: 20),
+          _sectionLabel(context, 'Equipo rival'),
+          _OpponentSearch(
+            excludeTeamId: _myTeam?.id ?? '',
+            selected: _opponent,
+            onSelected: (t) => setState(() => _opponent = t),
+          ),
+        ],
         const SizedBox(height: 28),
         if (sendState.hasError)
           Padding(
@@ -178,7 +245,7 @@ class _SendChallengeScreenState extends ConsumerState<SendChallengeScreen> {
             backgroundColor: OnzeColors.accent,
             padding: const EdgeInsets.symmetric(vertical: 14),
             shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
           child: sendState.isLoading
               ? const SizedBox(
@@ -187,7 +254,7 @@ class _SendChallengeScreenState extends ConsumerState<SendChallengeScreen> {
                   child: CircularProgressIndicator(
                       strokeWidth: 2, color: Colors.white),
                 )
-              : const Text('Enviar desafío'),
+              : Text(_isFriendly ? 'Solicitar amistoso' : 'Enviar desafío'),
         ),
       ],
     );
@@ -198,9 +265,17 @@ class _SendChallengeScreenState extends ConsumerState<SendChallengeScreen> {
       _fieldId != null &&
       _date != null &&
       _slot != null &&
-      _opponent != null;
+      (_isFriendly || _opponent != null);
 
   Future<void> _send() async {
+    if (_isFriendly) {
+      await _sendFriendly();
+    } else {
+      await _sendChallenge();
+    }
+  }
+
+  Future<void> _sendChallenge() async {
     final ok = await ref.read(sendChallengeProvider.notifier).send(
           challengerTeamId: _myTeam!.id,
           challengedTeamId: _opponent!.id,
@@ -215,6 +290,28 @@ class _SendChallengeScreenState extends ConsumerState<SendChallengeScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('¡Desafío enviado! Esperando respuesta del rival.'),
+          backgroundColor: OnzeColors.accent,
+        ),
+      );
+      context.pop();
+    }
+  }
+
+  Future<void> _sendFriendly() async {
+    final ok = await ref.read(createFriendlyProvider.notifier).create(
+          teamId: _myTeam!.id,
+          fieldId: _fieldId!,
+          date: _date!,
+          startTime: _slot!.startTime,
+          endTime: _slot!.endTime,
+          price: _slot!.price,
+        );
+    if (ok && mounted) {
+      ref.invalidate(challengesSentProvider);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content:
+              Text('¡Solicitud enviada! Esperando confirmación del dueño.'),
           backgroundColor: OnzeColors.accent,
         ),
       );
@@ -305,7 +402,7 @@ class _FieldDropdown extends StatelessWidget {
       isExpanded: true,
       itemHeight: 56,
       decoration: InputDecoration(
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         filled: true,
         fillColor: OnzeColors.surface,
         contentPadding:
@@ -366,13 +463,13 @@ class _DatePickerTile extends StatelessWidget {
         );
         if (picked != null) onSelected(picked);
       },
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(12),
       child: Container(
         padding:
             const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         decoration: BoxDecoration(
           border: Border.all(color: OnzeColors.border),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
           color: OnzeColors.surface,
         ),
         child: Row(
@@ -401,12 +498,17 @@ class _SlotSelector extends ConsumerWidget {
     required this.date,
     required this.selected,
     required this.onSelected,
+    this.autoSelectId,
   });
 
   final String fieldId;
   final DateTime date;
   final FieldSchedule? selected;
   final ValueChanged<FieldSchedule> onSelected;
+
+  /// Si viene precargado (desde el detalle de cancha), se selecciona
+  /// automáticamente el slot con este id cuando carga la lista.
+  final String? autoSelectId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -432,6 +534,14 @@ class _SlotSelector extends ConsumerWidget {
                 .bodySmall
                 ?.copyWith(color: OnzeColors.textSecondary),
           );
+        }
+        if (autoSelectId != null && selected == null) {
+          final match =
+              slots.where((s) => s.id == autoSelectId).toList();
+          if (match.isNotEmpty) {
+            WidgetsBinding.instance
+                .addPostFrameCallback((_) => onSelected(match.first));
+          }
         }
         return Wrap(
           spacing: 8,
@@ -512,7 +622,7 @@ class _OpponentSearchState extends ConsumerState<_OpponentSearch> {
             hintText: 'Buscar equipo rival…',
             prefixIcon: const Icon(Icons.search, color: OnzeColors.textSecondary),
             border:
-                OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             filled: true,
             fillColor: OnzeColors.surface,
           ),
@@ -528,7 +638,7 @@ class _OpponentSearchState extends ConsumerState<_OpponentSearch> {
             margin: const EdgeInsets.only(top: 4),
             decoration: BoxDecoration(
               color: OnzeColors.surface,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(color: OnzeColors.border),
             ),
             child: Column(
